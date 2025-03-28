@@ -14,3 +14,14 @@ bool isNumero(char* texto)
 
     return true;
 }
+
+
+bool ficheiroExiste(const char* caminho)
+{
+    struct stat buffer;
+    if(stat(caminho, &buffer) == -1)
+    {
+        return false;
+    }
+    return true;
+}

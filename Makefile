@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -Iinclude
-LDFLAGS =
+CFLAGS = -Wall -Wextra -O2 -Iinclude `pkg-config --cflags glib-2.0`
+LDFLAGS = `pkg-config --cflags --libs glib-2.0`
 
 all: folders dserver dclient
 
@@ -8,7 +8,7 @@ dserver: bin/dserver
 dclient: bin/dclient
 
 folders:
-	@mkdir -p src include obj bin tmp
+	@mkdir -p src include obj bin
 
 bin/dserver: obj/dserver.o obj/comandos.o obj/utils.o
 	$(CC) $(LDFLAGS) $^ -o $@
@@ -29,7 +29,7 @@ obj/utils.o: src/utils.c include/utils.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f obj/* tmp/* bin/*
+	rm -rf obj/* bin/* obj bin
 
 debug: clean
 	$(MAKE) CFLAGS+="-g -Wall -Wextra -O2 -Iinclude" all

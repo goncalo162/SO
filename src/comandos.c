@@ -1,5 +1,9 @@
 #include "comandos.h"
 
+#define TAMANHO_AUTORES 200 //Tamanho máximo em bytes para os autores
+#define TAMANHO_TITULO 200 //Tamanho máximo em bytes para o título
+#define TAMANHO_PATH 64 //Tamanho máximo em bytes para a path
+
 
 
 //* Typedef
@@ -19,8 +23,8 @@ typedef enum comandos
 
 struct comandoAdicionar
 {
-    char* titulo, *caminho;
-    char** autores;
+    char titulo[TAMANHO_TITULO], caminho[TAMANHO_PATH];
+    char autores[TAMANHO_AUTORES];
     int ano;
 };
 
@@ -145,23 +149,10 @@ Comando* criaComandoAdicionar(char* titulo, char* caminho, char* autores, int an
     if (!nComando) return NULL;
     nComando->tipoComando = ADICIONAR;
     nComando->dadosComando.comandoAdicionar.ano = ano;
-    nComando->dadosComando.comandoAdicionar.titulo = strdup(titulo);
-    nComando->dadosComando.comandoAdicionar.caminho = strdup(caminho);
+    strncpy(nComando->dadosComando.comandoAdicionar.titulo,titulo, TAMANHO_TITULO);
+    strncpy(nComando->dadosComando.comandoAdicionar.autores,titulo, TAMANHO_AUTORES);
+    strncpy(nComando->dadosComando.comandoAdicionar.caminho,caminho, TAMANHO_PATH);
 
-    char* atual, *copia = strdup(autores);
-    char* inicio = copia;
-    int numAutores = 0;
-    while ((atual = strsep(&copia, ","))) {
-        numAutores++;
-        nComando->dadosComando.comandoAdicionar.autores = realloc(nComando->dadosComando.comandoAdicionar.autores, sizeof(char*) * numAutores);
-        if (!nComando->dadosComando.comandoAdicionar.autores) {
-            free(nComando);
-            free(inicio);
-            return NULL;
-        }
-        nComando->dadosComando.comandoAdicionar.autores[numAutores - 1] = strdup(atual);
-    }
-    free(inicio);
     return nComando;
 }
 
@@ -185,7 +176,7 @@ Comando* criaComando(char* argumentos[], int tamanho)
             if (strcmp("-s", argumentos[0]) == 0 && isNumero(argumentos[2])) return criaComandoPesquisaIdsMultiproc(argumentos[1], atoi(argumentos[2]));
             return NULL;
         case 5:
-            if (strcmp("-a", argumentos[0]) == 0 && isNumero(argumentos[3])) return criaComandoAdicionar(argumentos[1], argumentos[4], argumentos[2], atoi(argumentos[3]));
+            if (strcmp("-a", argumentos[0]) == 0 && isNumero(argumentos[3]) && ficheiroExiste(argumentos[4])) return criaComandoAdicionar(argumentos[1], argumentos[4], argumentos[2], atoi(argumentos[3]));
             return NULL;
         default:
             return NULL;
@@ -193,21 +184,19 @@ Comando* criaComando(char* argumentos[], int tamanho)
 }
 
 
+Comando* criaComandoVazio()
+{
+    Comando* nComando = malloc(sizeof(Comando));
+    return nComando;
+}
+
 
 //* Funções de Remoção
 
 void freeComando(Comando* comando)
 {
-    if(comando->tipoComando == ADICIONAR)
+    if(comando->tipoComando == PESQUISA_NUM_LINHAS)
     {
-        for(int i=0; comando->dadosComando.comandoAdicionar.autores[i]; i++)
-            free(comando->dadosComando.comandoAdicionar.autores[i]);
-        free(comando->dadosComando.comandoAdicionar.autores);
-
-        free(comando->dadosComando.comandoAdicionar.caminho);
-        free(comando->dadosComando.comandoAdicionar.titulo);
-
-    }else if(comando->tipoComando == PESQUISA_NUM_LINHAS){
         free(comando->dadosComando.comandoPesquisaNumLinhas.palavraChave);
 
     }else if(comando->tipoComando == PESQUISA_IDS){
@@ -218,4 +207,19 @@ void freeComando(Comando* comando)
     }    
 
     free(comando);
+}
+
+
+
+//* Funções de Execução dos Comandos
+
+int executaComando(Comando* comando)
+{
+    if(comando->tipoComando == FECHAR)
+    {
+        printf(">Vamos fechar\n");
+        return -1;
+    }
+    printf(">Comando executado com sucesso\n");
+    return 0;
 }
