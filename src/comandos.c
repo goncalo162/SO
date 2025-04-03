@@ -1,28 +1,28 @@
 #include "comandos.h"
-
-#define TAMANHO_AUTORES 200 //Tamanho máximo em bytes para os autores
-#define TAMANHO_TITULO 200 //Tamanho máximo em bytes para o título
-#define TAMANHO_PATH 64 //Tamanho máximo em bytes para a path
-
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 
 //* Typedef
 
-typedef enum comandos
+typedef enum tiposComando
 {
-    ADICIONAR,
-    CONSULTAR,
-    REMOVER,
-    PESQUISA_NUM_LINHAS,
-    PESQUISA_IDS,
-    PESQUISA_IDS_MULTIPROC,
-    FECHAR
+    ADICIONAR = 1,
+    CONSULTAR = 2,
+    REMOVER = 3,
+    PESQUISA_NUM_LINHAS = 4,
+    PESQUISA_IDS = 5,
+    PESQUISA_IDS_MULTIPROC = 6,
+    FECHAR = 255
 
-} Comandos;
+} TipoComando;
 
 
 struct comandoAdicionar
 {
+    bool removido;
     char titulo[TAMANHO_TITULO], caminho[TAMANHO_PATH];
     char autores[TAMANHO_AUTORES];
     int ano;
@@ -63,7 +63,7 @@ struct comandoPesquisaIdsMultiproc
 
 typedef struct comando
 {
-    Comandos tipoComando;
+    TipoComando tipoComando;
 
     union
     {
@@ -142,15 +142,17 @@ Comando* criaComandoPesquisaIdsMultiproc(char* palavraChave, int numProc)
     return nComando;
 }
 
+ 
 
 Comando* criaComandoAdicionar(char* titulo, char* caminho, char* autores, int ano) 
 {
     Comando* nComando = malloc(sizeof(Comando));
     if (!nComando) return NULL;
     nComando->tipoComando = ADICIONAR;
+    nComando->dadosComando.comandoAdicionar.removido = false;
     nComando->dadosComando.comandoAdicionar.ano = ano;
     strncpy(nComando->dadosComando.comandoAdicionar.titulo,titulo, TAMANHO_TITULO);
-    strncpy(nComando->dadosComando.comandoAdicionar.autores,titulo, TAMANHO_AUTORES);
+    strncpy(nComando->dadosComando.comandoAdicionar.autores,autores, TAMANHO_AUTORES);
     strncpy(nComando->dadosComando.comandoAdicionar.caminho,caminho, TAMANHO_PATH);
 
     return nComando;
@@ -162,7 +164,8 @@ Comando* criaComandoAdicionar(char* titulo, char* caminho, char* autores, int an
 
 Comando* criaComando(char* argumentos[], int tamanho) 
 {
-    switch (tamanho) {
+    switch (tamanho) 
+    {
         case 1:
             if(strcmp("-f", argumentos[0]) == 0) return criaComandoFechar(); 
             return NULL;
@@ -191,7 +194,8 @@ Comando* criaComandoVazio()
 }
 
 
-//* Funções de Remoção
+
+//* Free
 
 void freeComando(Comando* comando)
 {
@@ -211,15 +215,50 @@ void freeComando(Comando* comando)
 
 
 
-//* Funções de Execução dos Comandos
+//* Escrever e ler no ficheiro
 
-int executaComando(Comando* comando)
+int writeComando(int fd, Comando* comando) 
 {
-    if(comando->tipoComando == FECHAR)
-    {
-        printf(">Vamos fechar\n");
-        return -1;
-    }
-    printf(">Comando executado com sucesso\n");
+    return write(fd, comando, sizeof(Comando));
+}
+
+
+Comando* readComando(int fd) 
+{
+    Comando* comando = (Comando*)malloc(sizeof(Comando));
+    read(fd, comando, sizeof(Comando));
+
+    return comando;
+}
+
+
+
+//* Getters
+
+int getDadosComandoAdicionar(Comando* comando, char nomeCopia[TAMANHO_TITULO], char autoresCopia[TAMANHO_AUTORES], char pathCopia[TAMANHO_PATH], int* anoCopia, bool* removidoCopia)
+{
+    if(comando->tipoComando!=ADICIONAR) return 1;
+    
+    strncpy(nomeCopia, comando->dadosComando.comandoAdicionar.titulo, TAMANHO_TITULO);
+    strncpy(autoresCopia, comando->dadosComando.comandoAdicionar.autores, TAMANHO_AUTORES);
+    strncpy(pathCopia, comando->dadosComando.comandoAdicionar.caminho, TAMANHO_PATH);
+    *anoCopia = comando->dadosComando.comandoAdicionar.ano;
+    *removidoCopia = comando->dadosComando.comandoAdicionar.removido;
+
     return 0;
+}
+
+
+int getIndexComando(Comando* comando)
+{
+    if(comando->tipoComando == CONSULTAR) return comando->dadosComando.comandoConsulta.index;
+    if(comando->tipoComando == REMOVER) return comando->dadosComando.comandoRemover.index;
+
+    return -1;
+}
+
+
+int getTipoComando(Comando* comando)
+{
+    return comando->tipoComando;
 }
