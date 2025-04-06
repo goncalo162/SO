@@ -22,7 +22,4 @@ bool ficheiroExiste(const char* caminho);
 //Recebe um caminho para um ficheiro e diz se este está vazio (tamanho de 0 bytes) ou não
 bool ficheiroVazio(const char* caminho);
 
-//Recebe uma string e um offset e procura a primeira posição nessa string após o offset onde o valor não é um inteiro
-int primeiraPosDepoisPid(char* texto, int offset);
-
 #endif

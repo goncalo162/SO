@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 
 
+
 //* Typedef
 
 typedef enum tiposComando
@@ -64,6 +65,7 @@ struct comandoPesquisaIdsMultiproc
 typedef struct comando
 {
     TipoComando tipoComando;
+    pid_t pidCliente;
 
     union
     {
@@ -162,28 +164,38 @@ Comando* criaComandoAdicionar(char* titulo, char* caminho, char* autores, int an
 
 //* Funções de Inicialização
 
-Comando* criaComando(char* argumentos[], int tamanho) 
+Comando* criaComando(char* argumentos[], int tamanho, pid_t pid) 
 {
-    switch (tamanho) 
+    Comando* nComando;
+    switch(tamanho) 
     {
         case 1:
-            if(strcmp("-f", argumentos[0]) == 0) return criaComandoFechar(); 
-            return NULL;
+            if(strcmp("-f", argumentos[0]) == 0) nComando = criaComandoFechar(); 
+            else return NULL;
+            break;
         case 2:
-            if (strcmp("-c", argumentos[0]) == 0 && isNumero(argumentos[1])) return criaComandoConsulta(atoi(argumentos[1]));
-            if (strcmp("-d", argumentos[0]) == 0 && isNumero(argumentos[1])) return criaComandoRemover(atoi(argumentos[1]));
-            if (strcmp("-s", argumentos[0]) == 0) return criaComandoPesquisaIds(argumentos[1]);
-            return NULL;
+            if (strcmp("-c", argumentos[0]) == 0 && isNumero(argumentos[1])) nComando = criaComandoConsulta(atoi(argumentos[1]));
+            else if (strcmp("-d", argumentos[0]) == 0 && isNumero(argumentos[1])) nComando = criaComandoRemover(atoi(argumentos[1]));
+            else if (strcmp("-s", argumentos[0]) == 0) nComando = criaComandoPesquisaIds(argumentos[1]);
+            else return NULL;
+            break;
         case 3:
-            if (strcmp("-l", argumentos[0]) == 0 && isNumero(argumentos[1])) return criaComandoPesquisaNumLinhas(atoi(argumentos[1]), argumentos[2]);
-            if (strcmp("-s", argumentos[0]) == 0 && isNumero(argumentos[2])) return criaComandoPesquisaIdsMultiproc(argumentos[1], atoi(argumentos[2]));
-            return NULL;
+            if (strcmp("-l", argumentos[0]) == 0 && isNumero(argumentos[1])) nComando = criaComandoPesquisaNumLinhas(atoi(argumentos[1]), argumentos[2]);
+            else if (strcmp("-s", argumentos[0]) == 0 && isNumero(argumentos[2])) nComando = criaComandoPesquisaIdsMultiproc(argumentos[1], atoi(argumentos[2]));
+            else return NULL;
+            break;
         case 5:
-            if (strcmp("-a", argumentos[0]) == 0 && isNumero(argumentos[3]) && ficheiroExiste(argumentos[4])) return criaComandoAdicionar(argumentos[1], argumentos[4], argumentos[2], atoi(argumentos[3]));
-            return NULL;
+            if (strcmp("-a", argumentos[0]) == 0 && isNumero(argumentos[3])) nComando = criaComandoAdicionar(argumentos[1], argumentos[4], argumentos[2], atoi(argumentos[3]));
+            else return NULL;
+            break;
         default:
             return NULL;
     }
+
+    if(nComando != NULL)
+        nComando->pidCliente = pid;
+
+    return nComando;
 }
 
 
@@ -200,15 +212,11 @@ Comando* criaComandoVazio()
 void freeComando(Comando* comando)
 {
     if(comando->tipoComando == PESQUISA_NUM_LINHAS)
-    {
         free(comando->dadosComando.comandoPesquisaNumLinhas.palavraChave);
-
-    }else if(comando->tipoComando == PESQUISA_IDS){
+    else if(comando->tipoComando == PESQUISA_IDS)
         free(comando->dadosComando.comandoPesquisaIds.palavraChave);
-        
-    }else if(comando->tipoComando == PESQUISA_IDS_MULTIPROC){
-        free(comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave);
-    }    
+    else if(comando->tipoComando == PESQUISA_IDS_MULTIPROC)
+        free(comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave);  
 
     free(comando);
 }
@@ -223,10 +231,15 @@ int writeComando(int fd, Comando* comando)
 }
 
 
-Comando* readComando(int fd) 
+Comando* readComando(int fd, int* n) 
 {
     Comando* comando = (Comando*)malloc(sizeof(Comando));
-    read(fd, comando, sizeof(Comando));
+    *n = read(fd, comando, sizeof(Comando));
+
+    if(n <= 0 || comando->tipoComando == 0) 
+    {
+        return NULL;
+    }
 
     return comando;
 }
@@ -261,4 +274,10 @@ int getIndexComando(Comando* comando)
 int getTipoComando(Comando* comando)
 {
     return comando->tipoComando;
+}
+
+
+pid_t getPidCliente(Comando* comando)
+{
+    return comando->pidCliente;
 }

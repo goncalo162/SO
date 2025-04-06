@@ -38,15 +38,3 @@ bool ficheiroVazio(const char* caminho)
     }
     return true;
 }
-
-
-int primeiraPosDepoisPid(char* texto, int offset)
-{
-    for(int i=offset; texto[i]!='\0'; i++)
-    {
-        if(texto[i] >= '0' && texto[i] <= '9')
-            return i;
-    }
-
-    return -1;    
-}
