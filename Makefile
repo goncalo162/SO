@@ -10,7 +10,7 @@ dclient: bin/dclient
 folders:
 	@mkdir -p src include obj bin
 
-bin/dserver: obj/utils.o obj/comandos.o obj/executor.o obj/dserver.o
+bin/dserver: obj/utils.o obj/comandos.o obj/metadados.o obj/serveraux.o obj/executor.o obj/dserver.o
 	$(CC) $(LDFLAGS) $^ -o $@
 
 bin/dclient: obj/utils.o obj/comandos.o obj/dclient.o
@@ -22,10 +22,16 @@ obj/utils.o: src/utils.c include/utils.h
 obj/comandos.o: src/comandos.c include/comandos.h include/utils.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-obj/executor.o: src/executor.c include/executor.h include/comandos.h include/utils.h
+obj/metadados.o: src/metadados.c include/metadados.h include/comandos.h include/utils.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-obj/dserver.o: src/dserver.c include/executor.h include/comandos.h include/utils.h
+obj/serveraux.o: src/serveraux.c include/serveraux.h include/metadados.h include/comandos.h include/utils.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+obj/executor.o: src/executor.c include/executor.h include/serveraux.h include/metadados.h include/comandos.h include/utils.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+obj/dserver.o: src/dserver.c include/executor.h include/serveraux.h include/metadados.h include/comandos.h include/utils.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 obj/dclient.o: src/dclient.c include/comandos.h include/utils.h

@@ -1,7 +1,7 @@
 #ifndef EXECUTOR
 #define EXECUTOR
 
-#include "comandos.h"
+#include "serveraux.h"
 
 typedef struct metadados Metadados;
 

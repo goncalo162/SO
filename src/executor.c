@@ -1,23 +1,11 @@
 #include "executor.h"
 
-#define RESPOSTA_TAM_MAX 600 //Número máximo de bytes que uma resposta pode ter
+#define RESPOSTA_TAM_MAX 560 //Número máximo de bytes que uma resposta pode ter
 #define ERRO_ABRIR_FICHEIRO "\\ERRO! Não foi possível abrir um ficheiro\n\0"
 #define ERRO_COPIAR_DADOS_COMANDO "\\ERRO! Não foi possível copiar os dados do comando\n\0"
 #define ERRO_COPIAR_INDEX_COMANDO "\\ERRO! Não foi possível copiar o index do comando\n\0"
 #define ERRO_FICHEIRO_INEXISTENTE "\\ERRO! Esse ficheiro não existe na diretoria de ficheiros\n\0"
 #define ERRO_INDEX_INEXISTENTE "\\ERRO! Esse index não existe no dataset ou foi removido\n\0"
-
-
-
-//* Typedef
-
-typedef struct metadados
-{
-    char nome[TAMANHO_TITULO], autor[TAMANHO_AUTORES], path[TAMANHO_PATH];
-    int ano;
-    bool removido;
-
-} Metadados;
 
 
 
@@ -44,26 +32,31 @@ char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* fi
     }
     lseek(fd, 0, SEEK_END);
 
-    Metadados metadados;
-    if(getDadosComandoAdicionar(comando, metadados.nome, metadados.autor, metadados.path, &metadados.ano, &metadados.removido) == 1)
+    Metadados* metadados;
+    if(!(metadados = criaMetadados(comando)))
     {
         close(fd);
         return strdup(ERRO_COPIAR_DADOS_COMANDO);
     }
+    char* path = getPath(metadados);
+    char caminhoCompleto[TAMANHO_PATH*2];
+    snprintf(caminhoCompleto, TAMANHO_PATH*2, "%s/%s", ficheirosDir, path);
+    if(!ficheiroExiste(caminhoCompleto)) 
+    {
+        free(path);
+        return strdup(ERRO_FICHEIRO_INEXISTENTE);
+    }
 
-    char caminhoCompleto[TAMANHO_PATH];
-    snprintf(caminhoCompleto, TAMANHO_PATH, "%s/%s", ficheirosDir, metadados.path);
-    if(!ficheiroExiste(caminhoCompleto)) return strdup(ERRO_FICHEIRO_INEXISTENTE);
-
-    write(fd, &metadados, BUFFER);
+    writeMetadados(metadados, fd);
 
     char resposta[RESPOSTA_TAM_MAX];
-    snprintf(resposta, RESPOSTA_TAM_MAX,"Document %d indexed\n", index);
+    snprintf(resposta, RESPOSTA_TAM_MAX,"Document %d indexed", index);
 
     close(fd);
+    free(path);
+    freeMetadados(metadados);
     return strdup(resposta);
 }
-
 
 
 char* executaComandoConsultar(Comando* comando, char* caminhoMetadados)
@@ -75,23 +68,39 @@ char* executaComandoConsultar(Comando* comando, char* caminhoMetadados)
     int index;
     if((index = getIndexComando(comando)) == -1) return strdup(ERRO_COPIAR_INDEX_COMANDO);
 
-    Metadados metadados;
+    Metadados* metadados;
     lseek(fd, (index * BUFFER) + 4, SEEK_SET);
-    read(fd, &metadados, BUFFER);
-
-    if(metadados.removido == true)
+    
+    if((metadados = readMetadados(fd)) == NULL)
     {
         close(fd);
+        return strdup(ERRO_INDEX_INEXISTENTE);        
+    }
+
+    if(isRemovido(metadados) == true)
+    {
+        close(fd);
+        freeMetadados(metadados);
         return strdup(ERRO_INDEX_INEXISTENTE);
     
     }else{
         close(fd);
+
+        char* nome = getNome(metadados);
+        char* autor = getAuthors(metadados);
+        char* path = getPath(metadados);
+        int ano = getAno(metadados);
+
         char resposta[RESPOSTA_TAM_MAX];
-        snprintf(resposta, RESPOSTA_TAM_MAX,"Title: %s\nAuthors: %s\nYear: %d\nPath: %s\n", metadados.nome, metadados.autor, metadados.ano, metadados.path);
+        snprintf(resposta, RESPOSTA_TAM_MAX,"Title: %s\nAuthors: %s\nYear: %d\nPath: %s", nome, autor, ano, path);    
+
+        free(nome);
+        free(path);
+        free(autor);
+
         return strdup(resposta);
     }
 }
-
 
 
 char* executaComandoRemover(Comando* comando, char* caminhoMetadados)
@@ -117,23 +126,30 @@ char* executaComandoRemover(Comando* comando, char* caminhoMetadados)
         return strdup(ERRO_INDEX_INEXISTENTE);
     }     
 
-    Metadados metadados;
+    Metadados* metadados;
     lseek(fd, (indexComando * BUFFER) + 4, SEEK_SET);
-    read(fd, &metadados, BUFFER);
-
-    if(metadados.removido == true)
+    
+    if(!(metadados = readMetadados(fd)))
     {
         close(fd);
+        return strdup(ERRO_INDEX_INEXISTENTE);        
+    }
+
+    if(isRemovido(metadados) == true)
+    {
+        close(fd);
+        freeMetadados(metadados);
         return strdup(ERRO_INDEX_INEXISTENTE);
 
     }else{
-        metadados.removido = true;
+        setRemovido(metadados);
         lseek(fd, -BUFFER, SEEK_CUR);
-        write(fd, &metadados, BUFFER);
-        
-        char resposta[RESPOSTA_TAM_MAX]; 
-        snprintf(resposta, RESPOSTA_TAM_MAX, "Index entry %d deleted\n", indexComando);
+        writeMetadados(metadados, fd);
+        freeMetadados(metadados);
         close(fd);
+
+        char resposta[RESPOSTA_TAM_MAX]; 
+        snprintf(resposta, RESPOSTA_TAM_MAX, "Index entry %d deleted", indexComando);
         return strdup(resposta);
     }
 }
@@ -148,10 +164,10 @@ char* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDi
     int tipo = getTipoComando(comando);
     switch(tipo)
     {
-        case 1: resultado = executaComandoAdicionar(comando, caminhoMetadados, ficheirosDir); break; 
-        case 2: resultado = executaComandoConsultar(comando, caminhoMetadados); break;
-        case 3: resultado = executaComandoRemover(comando, caminhoMetadados); break;
-        case 255: resultado = NULL; break;
+        case ADICIONAR: resultado = executaComandoAdicionar(comando, caminhoMetadados, ficheirosDir); break; 
+        case CONSULTAR: resultado = executaComandoConsultar(comando, caminhoMetadados); break;
+        case REMOVER: resultado = executaComandoRemover(comando, caminhoMetadados); break;
+        case FECHAR: resultado = NULL; break;
         default: resultado = " "; break;
     }
     free(ficheirosDir);
