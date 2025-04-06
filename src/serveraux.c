@@ -1,30 +1,29 @@
 #include "utils.h"
+#include <glib.h>
+#include <stdbool.h>
 
-
-typedef struct {
+typedef struct serverAux
+{
     GArray *indicesLivres;
-} StackIndexes;
-
-
-typedef struct {
     GHashTable *cache;
-    GQueue *ordem;
-} Cache;
+    GQueue *ordemCache;
+} ServerAuxiliar;
 
 
-void initStack(StackIndexes *stack) {
+void initStack(ServerAuxiliar *stack) 
+{
     stack->indicesLivres = g_array_new(FALSE, FALSE, sizeof(int));
 }
 
-bool isStackEmpty(StackIndexes *stack) {
+bool isStackEmpty(ServerAuxiliar *stack) {
     return stack->indicesLivres->len == 0;
 }
 
-void pushStack(StackIndexes *stack, int index) {
+void pushStack(ServerAuxiliar *stack, int index) {
     g_array_append_val(stack->indicesLivres, index);
 }
 
-int popStack(StackIndexes *stack) {
+int popStack(ServerAuxiliar *stack) {
     if (!isStackEmpty(stack)) {
         int index = g_array_index(stack->indicesLivres, int, stack->indicesLivres->len - 1);
         g_array_remove_index(stack->indicesLivres, stack->indicesLivres->len - 1);
@@ -33,6 +32,6 @@ int popStack(StackIndexes *stack) {
     return -1; 
 }
 
-void freeStack(StackIndexes *stack) {
+void freeStack(ServerAuxiliar *stack) {
     g_array_free(stack->indicesLivres, TRUE);
 }

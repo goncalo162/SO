@@ -4,6 +4,7 @@
 #define ERRO_ABRIR_FICHEIRO "\\ERRO! Não foi possível abrir um ficheiro\n\0"
 #define ERRO_COPIAR_DADOS_COMANDO "\\ERRO! Não foi possível copiar os dados do comando\n\0"
 #define ERRO_COPIAR_INDEX_COMANDO "\\ERRO! Não foi possível copiar o index do comando\n\0"
+#define ERRO_FICHEIRO_INEXISTENTE "\\ERRO! Esse ficheiro não existe na diretoria de ficheiros\n\0"
 #define ERRO_INDEX_INEXISTENTE "\\ERRO! Esse index não existe no dataset ou foi removido\n\0"
 
 
@@ -22,7 +23,7 @@ typedef struct metadados
 
 //* Funções de Execução Auxiliares
 
-char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados)
+char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
 {
     int fd; 
     if((fd = open(caminhoMetadados, O_RDWR|O_CREAT, 0666)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
@@ -49,6 +50,10 @@ char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados)
         close(fd);
         return strdup(ERRO_COPIAR_DADOS_COMANDO);
     }
+
+    char caminhoCompleto[TAMANHO_PATH];
+    snprintf(caminhoCompleto, TAMANHO_PATH, "%s/%s", ficheirosDir, metadados.path);
+    if(!ficheiroExiste(caminhoCompleto)) return strdup(ERRO_FICHEIRO_INEXISTENTE);
 
     write(fd, &metadados, BUFFER);
 
@@ -137,17 +142,18 @@ char* executaComandoRemover(Comando* comando, char* caminhoMetadados)
 
 //* Funções de Execução dos Comandos
 
-char* executaComando(Comando* comando, char* caminhoMetadados)
+char* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
 {
     char* resultado = NULL;
     int tipo = getTipoComando(comando);
     switch(tipo)
     {
-        case 1: resultado = executaComandoAdicionar(comando, caminhoMetadados); break; 
+        case 1: resultado = executaComandoAdicionar(comando, caminhoMetadados, ficheirosDir); break; 
         case 2: resultado = executaComandoConsultar(comando, caminhoMetadados); break;
         case 3: resultado = executaComandoRemover(comando, caminhoMetadados); break;
         case 255: resultado = NULL; break;
         default: resultado = " "; break;
     }
+    free(ficheirosDir);
     return resultado;
 }

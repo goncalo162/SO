@@ -1,9 +1,10 @@
 #include "executor.h"
 
-#define RESPOSTA_TAM_MAX 600 //Número máximo de bytes que uma resposta pode ter
-#define METADADOS_NOME "metadados" //Nome que o ficheiro com os metadados deverá ter 
-#define PIPESERVER_NOME "pipeServer" //Nome que o pipe com nome para enviar mensages ao servidor deverá ter
-#define PIPECLIENTE_NOME_MAX 60 //Número máximo de bytes que o nome do pipe com nome para receber mensagens do servidor deverá ter
+#define RESPOSTA_TAM_MAX 562
+#define METADADOS_NOME "metadados"
+#define PIPESERVER_NOME "pipeServer"
+#define PIPECLIENTE_NOME_MAX 60
+#define MENSAGEM_FECHO "Server is shuting down\n\0"
 
 
 
@@ -11,56 +12,86 @@
 
 int main(int argc, char* argv[])
 {
-    Comando* comandoAtual = criaComandoVazio();
-    int fifoServer, fifoCliente, n, estadoGeral = 0;
-    char* outputComando, nomeFifoCliente[PIPECLIENTE_NOME_MAX];
+    if(argc != 3 || !isNumero(argv[2])) 
+    {
+        perror("Input inválido"); 
+        return 1;
+    }
+
+    Comando* comandoAtual;
+    int fifoServer, fifoCliente, estadoGeral = 0;
+    char nomeFifoCliente[PIPECLIENTE_NOME_MAX];
 
     mkfifo(PIPESERVER_NOME, 0666);
-    if((fifoServer = open(PIPESERVER_NOME, O_RDONLY)) == -1) return 1;
-
-    while(estadoGeral != 255)
+    if ((fifoServer = open(PIPESERVER_NOME, O_RDONLY)) == -1) 
     {
-        int estadoAtual; // Antes de ler comandos novos confirmamos se nenhum dos processos filho retornou o código de saída de FECHAR
+        perror("Erro ao abrir FIFO do servidor");
+        return 1;
+    }
+
+    while(estadoGeral != 255) 
+    {
+        int estadoAtual;
         pid_t pidAcabou;
-        while ((pidAcabou = waitpid(-1, &estadoAtual, WNOHANG)) > 0)
+
+        while((pidAcabou = waitpid(-1, &estadoAtual, WNOHANG)) > 0) 
         {
-            if(WEXITSTATUS(estadoAtual) == 255)
+            if (WEXITSTATUS(estadoAtual) == 255) 
             {
                 estadoGeral = 255;
-                break;  // Acabar com este while imediatamente para fechar logo o programa se detetarmos que o utilizar passou o comando FECHAR
+                break;
             }
         }
 
-        if((read(fifoServer, nomeFifoCliente, PIPECLIENTE_NOME_MAX)) > 0)
+        int n;
+        comandoAtual = readComando(fifoServer, &n);
+
+        if(n > 0 && comandoAtual != NULL)
         {
-            comandoAtual = readComando(fifoServer);//Se nenhum dos comandos anteriores foi FECHAR então podemos ler o próximo comando
-            
-            pid_t pid;
-            if((pid = fork())==0)
+            if (getTipoComando(comandoAtual) == 255) //Confirmar se o comando é fechar, se for saltamos para a próxima iteração do loop e fechar server
             {
-                outputComando = executaComando(comandoAtual, METADADOS_NOME); 
-                if((fifoCliente = open(nomeFifoCliente, O_WRONLY)) == -1)
+                estadoGeral = 255;
+                snprintf(nomeFifoCliente, PIPECLIENTE_NOME_MAX, "pipeCliente%d", getPidCliente(comandoAtual));
+                if((fifoCliente = open(nomeFifoCliente, O_WRONLY)) == -1) 
                 {
-                    printf("ERRO! Não foi possivel abrir %s \n", nomeFifoCliente);
+                    perror("Erro ao abrir FIFO do cliente");
+                    _exit(255);
+                }
+                write(fifoCliente, MENSAGEM_FECHO, strlen(MENSAGEM_FECHO));
+                break;
+            }
+
+            pid_t pid;
+            if((pid = fork()) == 0)
+            {
+                snprintf(nomeFifoCliente, PIPECLIENTE_NOME_MAX, "pipeCliente%d", getPidCliente(comandoAtual));
+                if((fifoCliente = open(nomeFifoCliente, O_WRONLY)) == -1) 
+                {
+                    perror("Erro ao abrir FIFO do cliente");
                     _exit(255);
                 }
 
-                if(!outputComando) //Fechar
-                {
-                    printf("Fechar\n");
-                    write(fifoCliente, "!\0", RESPOSTA_TAM_MAX);
-                    _exit(255);
-                }
+                char* outputComando = executaComando(comandoAtual, METADADOS_NOME, strdup(argv[1]));
 
-                if(outputComando[0] == '\\') //Erro
+                if(outputComando[0] == '\\') // Erro
                 {
-                    printf("%s", outputComando+1);
-                    write(fifoCliente, "!\0", RESPOSTA_TAM_MAX);
+                    write(fifoCliente, "!\n", 2);
+                    printf("%s", outputComando + 1);
+                    close(fifoCliente);
                     _exit(0);
                 }
-                write(fifoCliente, outputComando, strlen(outputComando)); //Comando bem sucedido
+
+                write(fifoCliente, outputComando, strlen(outputComando)); // Sucesso
                 close(fifoCliente);
                 _exit(0);
+            }
+
+        }else{
+            close(fifoServer);
+            if ((fifoServer = open(PIPESERVER_NOME, O_RDONLY)) == -1) 
+            {
+                perror("Erro ao abrir FIFO do servidor");
+                return 1;
             }
         }
     }
