@@ -7,7 +7,23 @@
 #define TAMANHO_TITULO 200 //Tamanho máximo em bytes para o título
 #define TAMANHO_PATH 64 //Tamanho máximo em bytes para a path
 
-#define BUFFER 512 //Tamanho máximo em bytes que um comando pode ter
+#define BUFFER 472 //Tamanho máximo em bytes que um comando pode ter
+
+
+/* Enum constante com os valores para cada tipo de comando
+*/
+typedef enum tiposComando
+{
+   ADICIONAR = 1,
+   CONSULTAR = 2,
+   REMOVER = 3,
+   PESQUISA_NUM_LINHAS = 4,
+   PESQUISA_IDS = 5,
+   PESQUISA_IDS_MULTIPROC = 6,
+   FECHAR = 255
+
+} TipoComando;
+
 
 /* Estrutura de dados que representa um comando e os seus argumentos
    Contém:

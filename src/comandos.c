@@ -8,19 +8,6 @@
 
 //* Typedef
 
-typedef enum tiposComando
-{
-    ADICIONAR = 1,
-    CONSULTAR = 2,
-    REMOVER = 3,
-    PESQUISA_NUM_LINHAS = 4,
-    PESQUISA_IDS = 5,
-    PESQUISA_IDS_MULTIPROC = 6,
-    FECHAR = 255
-
-} TipoComando;
-
-
 struct comandoAdicionar
 {
     bool removido;
@@ -143,7 +130,6 @@ Comando* criaComandoPesquisaIdsMultiproc(char* palavraChave, int numProc)
     nComando->dadosComando.comandoPesquisaIdsMultiproc.numProc = numProc;
     return nComando;
 }
-
  
 
 Comando* criaComandoAdicionar(char* titulo, char* caminho, char* autores, int ano) 
