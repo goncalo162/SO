@@ -6,9 +6,7 @@
 #define TAMANHO_AUTORES 200 //Tamanho máximo em bytes para os autores
 #define TAMANHO_TITULO 200 //Tamanho máximo em bytes para o título
 #define TAMANHO_PATH 64 //Tamanho máximo em bytes para a path
-
-#define BUFFER 472 //Tamanho máximo em bytes que um comando pode ter
-
+#define TAMANHO_PALAVRA_CHAVE 400 //Tamanho máximo em bytes para a palavra chave
 
 /* Enum constante com os valores para cada tipo de comando
 */
@@ -49,5 +47,7 @@ int getTipoComando(Comando* comando);
 int getIndexComando(Comando* comando);
 
 pid_t getPidCliente(Comando* comando);
+
+char* getPalavraChaveComando(Comando* comando);
 
 #endif
