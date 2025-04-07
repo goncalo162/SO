@@ -3,6 +3,8 @@
 
 #include "comandos.h"
 
+#define BUFFER 472 //Tamanho máximo em bytes que metadados pode ter
+
 
 typedef struct metadados Metadados;
 

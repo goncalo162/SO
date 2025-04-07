@@ -32,19 +32,19 @@ struct comandoRemover
 struct comandoPesquisaNumLinhas
 {
     int index;
-    char* palavraChave;
+    char palavraChave[TAMANHO_PALAVRA_CHAVE];
 };
 
 
 struct comandoPesquisaIds
 {
-    char* palavraChave;
+    char palavraChave[TAMANHO_PALAVRA_CHAVE];
 };
 
 
 struct comandoPesquisaIdsMultiproc
 {
-    char* palavraChave;
+    char palavraChave[TAMANHO_PALAVRA_CHAVE];
     int numProc;
 };
 
@@ -105,7 +105,7 @@ Comando* criaComandoPesquisaIds(char* palavraChave)
     Comando* nComando = malloc(sizeof(Comando));
     if (!nComando) return NULL;
     nComando->tipoComando = PESQUISA_IDS;
-    nComando->dadosComando.comandoPesquisaIds.palavraChave = strdup(palavraChave);
+    strncpy(nComando->dadosComando.comandoPesquisaIds.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE);
     return nComando;
 }
 
@@ -116,7 +116,7 @@ Comando* criaComandoPesquisaNumLinhas(int index, char* palavraChave)
     if (!nComando) return NULL;
     nComando->tipoComando = PESQUISA_NUM_LINHAS;
     nComando->dadosComando.comandoPesquisaNumLinhas.index = index;
-    nComando->dadosComando.comandoPesquisaNumLinhas.palavraChave = strdup(palavraChave);
+    strncpy(nComando->dadosComando.comandoPesquisaNumLinhas.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE);
     return nComando;
 }
 
@@ -126,7 +126,7 @@ Comando* criaComandoPesquisaIdsMultiproc(char* palavraChave, int numProc)
     Comando* nComando = malloc(sizeof(Comando));
     if (!nComando) return NULL;
     nComando->tipoComando = PESQUISA_IDS_MULTIPROC;
-    nComando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave = strdup(palavraChave);
+    strncpy(nComando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE);
     nComando->dadosComando.comandoPesquisaIdsMultiproc.numProc = numProc;
     return nComando;
 }
@@ -197,13 +197,6 @@ Comando* criaComandoVazio()
 
 void freeComando(Comando* comando)
 {
-    if(comando->tipoComando == PESQUISA_NUM_LINHAS)
-        free(comando->dadosComando.comandoPesquisaNumLinhas.palavraChave);
-    else if(comando->tipoComando == PESQUISA_IDS)
-        free(comando->dadosComando.comandoPesquisaIds.palavraChave);
-    else if(comando->tipoComando == PESQUISA_IDS_MULTIPROC)
-        free(comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave);  
-
     free(comando);
 }
 
@@ -252,8 +245,19 @@ int getIndexComando(Comando* comando)
 {
     if(comando->tipoComando == CONSULTAR) return comando->dadosComando.comandoConsulta.index;
     if(comando->tipoComando == REMOVER) return comando->dadosComando.comandoRemover.index;
+    if(comando->tipoComando == PESQUISA_NUM_LINHAS) return comando->dadosComando.comandoPesquisaNumLinhas.index;
 
     return -1;
+}
+
+
+char* getPalavraChaveComando(Comando* comando)
+{
+    if(comando->tipoComando == PESQUISA_NUM_LINHAS) return strdup(comando->dadosComando.comandoPesquisaNumLinhas.palavraChave);
+    if(comando->tipoComando == PESQUISA_IDS) return strdup(comando->dadosComando.comandoPesquisaIds.palavraChave);
+    if(comando->tipoComando == PESQUISA_IDS_MULTIPROC) return strdup(comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave);
+
+    return NULL;
 }
 
 
