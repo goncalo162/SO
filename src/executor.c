@@ -7,6 +7,7 @@
 #define ERRO_COPIAR_PALAVRA_CHAVE_COMANDO "\\ERRO! Não foi possível copiar a palavra chave do comando\n\0"
 #define ERRO_FICHEIRO_INEXISTENTE "\\ERRO! Esse ficheiro não existe na diretoria de ficheiros\n\0"
 #define ERRO_INDEX_INEXISTENTE "\\ERRO! Esse index não existe no dataset ou foi removido\n\0"
+#define ERRO_LER_INDEXMAX "\\ERRO! Não foi possível ler o index máximo do ficheiro\n\0"
 #define ERRO_PROCESSO_FILHO_FALHOU "\\ERRO! Processo filho falhou\n\0"
 
 
@@ -152,7 +153,7 @@ char* executaComandoRemover(Comando* comando, char* caminhoMetadados)
 char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
 {
     int fd, index;
-    int pipe_grep[2], pipe_wc[2];
+    int pipeGrep[2], pipeWc[2];
     char resposta[RESPOSTA_TAM_MAX];
     char* palavaraChave;
 
@@ -178,16 +179,16 @@ char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, 
         return strdup(ERRO_FICHEIRO_INEXISTENTE);
     }
 
-    pipe(pipe_grep); // grep -> wc
-    pipe(pipe_wc);   // wc -> pai
+    pipe(pipeGrep); // grep -> wc
+    pipe(pipeWc);   // wc -> pai
 
     pid_t pid1 = fork();
     if (pid1 == 0) {
-        dup2(pipe_grep[1], STDOUT_FILENO);
-        close(pipe_grep[0]);
-        close(pipe_grep[1]);
-        close(pipe_wc[0]);
-        close(pipe_wc[1]);
+        dup2(pipeGrep[1], STDOUT_FILENO);
+        close(pipeGrep[0]);
+        close(pipeGrep[1]);
+        close(pipeWc[0]);
+        close(pipeWc[1]);
 
         execlp("grep", "grep", palavaraChave, caminhoCompleto, NULL);
         _exit(EXIT_FAILURE);
@@ -196,21 +197,21 @@ char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, 
     pid_t pid2 = fork();
     if (pid2 == 0) 
     {
-        dup2(pipe_grep[0], STDIN_FILENO);
-        dup2(pipe_wc[1], STDOUT_FILENO);
+        dup2(pipeGrep[0], STDIN_FILENO);
+        dup2(pipeWc[1], STDOUT_FILENO);
 
-        close(pipe_grep[0]);
-        close(pipe_grep[1]);
-        close(pipe_wc[0]);
-        close(pipe_wc[1]);
+        close(pipeGrep[0]);
+        close(pipeGrep[1]);
+        close(pipeWc[0]);
+        close(pipeWc[1]);
 
         execlp("wc", "wc", "-l", NULL);
         _exit(EXIT_FAILURE);
     }
 
-    close(pipe_grep[0]);
-    close(pipe_grep[1]);
-    close(pipe_wc[1]);
+    close(pipeGrep[0]);
+    close(pipeGrep[1]);
+    close(pipeWc[1]);
 
     int estado;
     waitpid(pid1, &estado, 0);
@@ -220,10 +221,10 @@ char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, 
     if (estado != 0) goto errosProcessoFilho;
 
     int n;
-    if ((n = read(pipe_wc[0], resposta, RESPOSTA_TAM_MAX - 1)) <= 0) goto errosProcessoFilho;
+    if ((n = read(pipeWc[0], resposta, RESPOSTA_TAM_MAX - 1)) <= 0) goto errosProcessoFilho;
     resposta[strlen(resposta)-1] = '\0';
 
-    close(pipe_wc[0]);
+    close(pipeWc[0]);
     close(fd);
     freeMetadados(metadados);
     free(palavaraChave);
@@ -234,11 +235,75 @@ char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, 
                             close(fd);
                             return strdup(ERRO_INDEX_INEXISTENTE);
 
-    errosProcessoFilho:     close(pipe_wc[0]);
+    errosProcessoFilho:     close(pipeWc[0]);
                             close(fd);
                             freeMetadados(metadados);
                             free(palavaraChave);
                             return strdup(ERRO_PROCESSO_FILHO_FALHOU);
+}
+
+
+char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+{
+    int fd, indexMax, fildes[2], n1, offset=1;
+    char resposta[RESPOSTA_TAM_MAX] = "[";
+    char* palavaraChave;
+
+    if ((palavaraChave = getPalavraChaveComando(comando)) == NULL) return strdup(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
+    if ((fd = open(caminhoMetadados, O_RDWR)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+    if ((n1 = read(fd, &indexMax, sizeof(int))) <= 0) return strdup(ERRO_COPIAR_INDEX_COMANDO);
+
+    for(int i=0; i<=indexMax; i++)
+    {
+        Metadados* metadados;
+        if (!(metadados = readMetadados(fd))) 
+        {
+            break;
+        }
+        if (isRemovido(metadados) == true)
+        {
+            freeMetadados(metadados);
+            continue;
+        }
+        char* path = getPath(metadados);
+        char caminhoCompleto[TAMANHO_PATH * 2];
+        snprintf(caminhoCompleto, TAMANHO_PATH * 2, "%s/%s", ficheirosDir, path);
+        free(path);
+        
+        if (!ficheiroExiste(caminhoCompleto)) 
+        {
+            freeMetadados(metadados);
+            continue;
+        }
+
+        pipe(fildes);
+        pid_t pid;
+        if((pid = fork()) == 0)
+        {
+            dup2(fildes[1], STDOUT_FILENO);
+            close(fildes[0]);
+            close(fildes[1]);
+
+            execlp("grep", "grep", palavaraChave, caminhoCompleto, NULL);
+            _exit(EXIT_FAILURE); 
+
+        }else{
+            close(fildes[1]);
+            //waitpid(pid, NULL, 0);
+            int nGrep;
+            char buffer[BUFFER];
+            if((nGrep = read(fildes[0], buffer, BUFFER)) > 0)
+                offset += snprintf(resposta + offset, RESPOSTA_TAM_MAX - offset, "%d, ", i);
+            close(fildes[0]);    
+        }
+        freeMetadados(metadados);
+    }
+
+    resposta[strlen(resposta)-2] = ']';
+    resposta[strlen(resposta)-1] = '\0';
+    close(fd);
+    free(palavaraChave);
+    return strdup(resposta);
 }
 
 
@@ -255,6 +320,7 @@ char* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDi
         case CONSULTAR: resultado = executaComandoConsultar(comando, caminhoMetadados); break;
         case REMOVER: resultado = executaComandoRemover(comando, caminhoMetadados); break;
         case PESQUISA_NUM_LINHAS: resultado = executaComandoPesquisaNumLinhas(comando, caminhoMetadados, ficheirosDir); break;
+        case PESQUISA_IDS: resultado = executaComandoPesquisaIds(comando, caminhoMetadados, ficheirosDir); break;
         case FECHAR: resultado = NULL; break;
         default: resultado = " "; break;
     }
