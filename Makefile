@@ -41,4 +41,4 @@ clean:
 	rm -rf obj/* bin/* obj bin
 
 debug: clean
-	$(MAKE) CFLAGS+="-g -Wall -Wextra -O2 -Iinclude" all
+	$(MAKE) all CFLAGS="$(CFLAGS) -g" LDFLAGS="$(LDFLAGS)"
