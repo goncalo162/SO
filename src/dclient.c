@@ -2,7 +2,7 @@
 
 #define PIPESERVER_NOME "pipeServer" //Nome que o pipe com nome para enviar mensagens aos servidor deverá ter
 #define PIPECLIENTE_NOME_MAX 50 //Número máximo de bytes que o nome do pipe com nome para receber mensagens do servidor deverá ter
-#define RESPOSTA_TAM_MAX 562 //Número máximo de bytes que uma resposta pode ter
+#define RESPOSTA_TAM_MAX 6000 //Número máximo de bytes que uma resposta pode ter
 
 
 //* Main

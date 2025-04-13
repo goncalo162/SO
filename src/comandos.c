@@ -152,7 +152,7 @@ Comando* criaComandoAdicionar(char* titulo, char* caminho, char* autores, int an
 
 Comando* criaComando(char* argumentos[], int tamanho, pid_t pid) 
 {
-    Comando* nComando;
+    Comando* nComando = NULL;
     switch(tamanho) 
     {
         case 1:
@@ -215,8 +215,9 @@ Comando* readComando(int fd, int* n)
     Comando* comando = (Comando*)malloc(sizeof(Comando));
     *n = read(fd, comando, sizeof(Comando));
 
-    if(n <= 0 || comando->tipoComando == 0) 
+    if(*n <= 0 || comando->tipoComando == 0) 
     {
+        free(comando);
         return NULL;
     }
 

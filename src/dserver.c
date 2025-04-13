@@ -1,6 +1,6 @@
 #include "executor.h"
 
-#define RESPOSTA_TAM_MAX 562
+#define RESPOSTA_TAM_MAX 6000
 #define METADADOS_NOME "metadados"
 #define PIPESERVER_NOME "pipeServer"
 #define PIPECLIENTE_NOME_MAX 60
@@ -18,7 +18,6 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    Comando* comandoAtual;
     int fifoServer, fifoCliente, estadoGeral = 0;
     char nomeFifoCliente[PIPECLIENTE_NOME_MAX];
 
@@ -31,36 +30,11 @@ int main(int argc, char* argv[])
 
     while(estadoGeral != FECHAR) 
     {
-        int estadoAtual;
-        pid_t pidAcabou;
-
-        while((pidAcabou = waitpid(-1, &estadoAtual, WNOHANG)) > 0) 
-        {
-            if (WEXITSTATUS(estadoAtual) == FECHAR) 
-            {
-                estadoGeral = FECHAR;
-                break;
-            }
-        }
-
-        int n;
-        comandoAtual = readComando(fifoServer, &n);
+        int estadoAtual, n;
+        Comando* comandoAtual = readComando(fifoServer, &n);
 
         if(n > 0 && comandoAtual != NULL)
         {
-            if (getTipoComando(comandoAtual) == FECHAR) //Confirmar se o comando é fechar, se for saltamos para a próxima iteração do loop e fechar server
-            {
-                estadoGeral = FECHAR;
-                snprintf(nomeFifoCliente, PIPECLIENTE_NOME_MAX, "pipeCliente%d", getPidCliente(comandoAtual));
-                if((fifoCliente = open(nomeFifoCliente, O_WRONLY)) == -1) 
-                {
-                    printf("Erro ao abrir FIFO do cliente");
-                    _exit(FECHAR);
-                }
-                write(fifoCliente, MENSAGEM_FECHO, strlen(MENSAGEM_FECHO));
-                break;
-            }
-
             pid_t pid;
             if((pid = fork()) == 0)
             {
@@ -68,6 +42,12 @@ int main(int argc, char* argv[])
                 if((fifoCliente = open(nomeFifoCliente, O_WRONLY)) == -1) 
                 {
                     printf("Erro ao abrir FIFO do cliente");
+                    _exit(FECHAR);
+                }
+
+                if(getTipoComando(comandoAtual) == FECHAR)
+                {
+                    write(fifoCliente, MENSAGEM_FECHO, strlen(MENSAGEM_FECHO));
                     _exit(FECHAR);
                 }
 
@@ -84,20 +64,22 @@ int main(int argc, char* argv[])
                 write(fifoCliente, outputComando, RESPOSTA_TAM_MAX); // Sucesso
                 close(fifoCliente);
                 _exit(0);
-            }
 
-        }else{
-            close(fifoServer);
-            if ((fifoServer = open(PIPESERVER_NOME, O_RDONLY)) == -1) 
-            {
-                perror("Erro ao abrir FIFO do servidor");
-                return 1;
+            }else{
+                freeComando(comandoAtual);
+                wait(&estadoAtual);
+                if(WEXITSTATUS(estadoAtual) == 255)
+                {    
+                    estadoGeral = 255;
+                    break;
+                }else{
+                    continue;
+                }
             }
-        }
+        }    
     }
 
     close(fifoServer);
     unlink(PIPESERVER_NOME);
-    freeComando(comandoAtual);
     return 0;
 }

@@ -1,6 +1,6 @@
 #include "executor.h"
 
-#define RESPOSTA_TAM_MAX 560 //Número máximo de bytes que uma resposta pode ter
+#define RESPOSTA_TAM_MAX 6000 //Número máximo de bytes que uma resposta pode ter
 #define ERRO_ABRIR_FICHEIRO "\\ERRO! Não foi possível abrir um ficheiro\n\0"
 #define ERRO_COPIAR_DADOS_COMANDO "\\ERRO! Não foi possível copiar os dados do comando\n\0"
 #define ERRO_COPIAR_INDEX_COMANDO "\\ERRO! Não foi possível copiar o index do comando\n\0"
@@ -243,7 +243,7 @@ char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, 
 }
 
 
-char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* ficheirosDir, int indexMaximo)
 {
     int fd, indexMax, fildes[2], n1, offset=1;
     char resposta[RESPOSTA_TAM_MAX] = "[";
@@ -251,10 +251,23 @@ char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* 
 
     if ((palavaraChave = getPalavraChaveComando(comando)) == NULL) return strdup(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
     if ((fd = open(caminhoMetadados, O_RDWR)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
-    if ((n1 = read(fd, &indexMax, sizeof(int))) <= 0) return strdup(ERRO_COPIAR_INDEX_COMANDO);
 
+    if(indexMaximo == -1)
+        if((n1 = read(fd, &indexMax, sizeof(int))) < 0)
+        {
+            printf("VAI PO CARALHO\n"); 
+            return strdup(ERRO_COPIAR_INDEX_COMANDO); 
+        }
+    else
+    {
+        indexMax = indexMaximo; 
+        lseek(fd, 4, SEEK_SET); //Ignorar o index máximo
+    }   
+
+    printf("Index é %d\n", indexMax);
     for(int i=0; i<=indexMax; i++)
     {
+        printf("Index é %d\n", indexMax);
         Metadados* metadados;
         if (!(metadados = readMetadados(fd))) 
         {
@@ -289,7 +302,6 @@ char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* 
 
         }else{
             close(fildes[1]);
-            //waitpid(pid, NULL, 0);
             int nGrep;
             char buffer[BUFFER];
             if((nGrep = read(fildes[0], buffer, BUFFER)) > 0)
@@ -320,7 +332,7 @@ char* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDi
         case CONSULTAR: resultado = executaComandoConsultar(comando, caminhoMetadados); break;
         case REMOVER: resultado = executaComandoRemover(comando, caminhoMetadados); break;
         case PESQUISA_NUM_LINHAS: resultado = executaComandoPesquisaNumLinhas(comando, caminhoMetadados, ficheirosDir); break;
-        case PESQUISA_IDS: resultado = executaComandoPesquisaIds(comando, caminhoMetadados, ficheirosDir); break;
+        case PESQUISA_IDS: resultado = executaComandoPesquisaIds(comando, caminhoMetadados, ficheirosDir, -1); break;
         case FECHAR: resultado = NULL; break;
         default: resultado = " "; break;
     }
