@@ -185,9 +185,14 @@ Comando* criaComando(char* argumentos[], int tamanho, pid_t pid)
 }
 
 
-Comando* criaComandoVazio()
+Comando* comandoMultiprocParaId(Comando* comando)
 {
-    Comando* nComando = malloc(sizeof(Comando));
+    Comando* nComando = NULL;
+    if(comando->tipoComando != PESQUISA_IDS_MULTIPROC) return NULL;
+
+    nComando = malloc(sizeof(Comando));
+    nComando->tipoComando = PESQUISA_IDS;
+    strncpy(nComando->dadosComando.comandoPesquisaIds.palavraChave, comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave, TAMANHO_PALAVRA_CHAVE);
     return nComando;
 }
 
@@ -265,6 +270,14 @@ char* getPalavraChaveComando(Comando* comando)
 int getTipoComando(Comando* comando)
 {
     return comando->tipoComando;
+}
+
+
+int getNumProcessos(Comando* comando)
+{
+    if(comando->tipoComando == PESQUISA_IDS_MULTIPROC) return comando->dadosComando.comandoPesquisaIdsMultiproc.numProc;
+
+    return -1;
 }
 
 

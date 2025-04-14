@@ -33,6 +33,8 @@ typedef struct comando Comando;
 //Cria um comando se este for válido com os argumentos passados a este e o número de argumentos
 Comando* criaComando(char* argumentos[], int tamanho, pid_t pid);
 
+Comando* comandoMultiprocParaId(Comando* comando);
+
 //Liberta o espaço em memória ocupado por por um comando
 void freeComando(Comando* comando);
 
@@ -46,8 +48,10 @@ int getTipoComando(Comando* comando);
 
 int getIndexComando(Comando* comando);
 
-pid_t getPidCliente(Comando* comando);
-
 char* getPalavraChaveComando(Comando* comando);
+
+int getNumProcessos(Comando* comando);
+
+pid_t getPidCliente(Comando* comando);
 
 #endif
