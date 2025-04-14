@@ -1,9 +1,10 @@
 #include "executor.h"
 
-#define RESPOSTA_TAM_MAX 6000 //Número máximo de bytes que uma resposta pode ter
+#define RESPOSTA_TAM_MAX 200000 //Número máximo de bytes que uma resposta pode ter
 #define ERRO_ABRIR_FICHEIRO "\\ERRO! Não foi possível abrir um ficheiro\n\0"
 #define ERRO_COPIAR_DADOS_COMANDO "\\ERRO! Não foi possível copiar os dados do comando\n\0"
 #define ERRO_COPIAR_INDEX_COMANDO "\\ERRO! Não foi possível copiar o index do comando\n\0"
+#define ERRO_COPIAR_NUM_PROCESSOS_COMANDO "\\ERRO! Não foi possível copiar o número de processos do comando\n\0"
 #define ERRO_COPIAR_PALAVRA_CHAVE_COMANDO "\\ERRO! Não foi possível copiar a palavra chave do comando\n\0"
 #define ERRO_FICHEIRO_INEXISTENTE "\\ERRO! Esse ficheiro não existe na diretoria de ficheiros\n\0"
 #define ERRO_INDEX_INEXISTENTE "\\ERRO! Esse index não existe no dataset ou foi removido\n\0"
@@ -12,185 +13,111 @@
 
 
 
-//* Funções de Execução Auxiliares
+//* Funções Genéricas
 
-char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+char* limparRecursosComando(int fd, Metadados* metadados, char* palavraChave, const char* mensagem) 
 {
-    int fd; 
-    if((fd = open(caminhoMetadados, O_RDWR|O_CREAT, 0666)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+    if(fd != -1) close(fd);
+    if(metadados) freeMetadados(metadados);
+    if(palavraChave) free(palavraChave);
+    return strdup(mensagem);
+}
 
-    int index = 0;
 
-    if(ficheiroVazio(caminhoMetadados)) //Se o ficheiro de metadados for vazio adicionamos ao inicio do ficheiro o primeiro index válido (0)
-    {
-        lseek(fd, 0, SEEK_SET);
-        write(fd, &index, sizeof(int));
-
-    }else{ //Caso contrário lemos o index no inicio do ficheiro e substituimos com o valor novo
-        lseek(fd, 0, SEEK_SET);
-        read(fd, &index, sizeof(int));
-        index++;
-        lseek(fd, 0, SEEK_SET);
-        write(fd, &index, sizeof(int));
-    }
-    lseek(fd, 0, SEEK_END);
-
-    Metadados* metadados;
-    if(!(metadados = criaMetadados(comando)))
-    {
-        close(fd);
-        return strdup(ERRO_COPIAR_DADOS_COMANDO);
-    }
+char* construirCaminhoCompleto(Metadados* metadados, const char* ficheirosDir) 
+{
     char* path = getPath(metadados);
-    char caminhoCompleto[TAMANHO_PATH*2];
-    snprintf(caminhoCompleto, TAMANHO_PATH*2, "%s/%s", ficheirosDir, path);
-    if(!ficheiroExiste(caminhoCompleto)) 
+    if(!path) return NULL;
+
+    char* caminhoCompleto = malloc(sizeof(char) * TAMANHO_PATH * 2);
+    if (!caminhoCompleto) 
     {
         free(path);
-        freeMetadados(metadados);
-        close(fd);
-        return strdup(ERRO_FICHEIRO_INEXISTENTE);
+        free(caminhoCompleto);
+        return NULL;
     }
 
-    writeMetadados(metadados, fd);
-
-    char resposta[RESPOSTA_TAM_MAX];
-    snprintf(resposta, RESPOSTA_TAM_MAX,"Document %d indexed", index);
-
-    close(fd);
-    free(path);
-    freeMetadados(metadados);
-    return strdup(resposta);
-}
-
-
-char* executaComandoConsultar(Comando* comando, char* caminhoMetadados)
-{
-    int fd; 
-    if((fd = open(caminhoMetadados, O_RDONLY)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
-    
-    char mensagem[BUFFER];
-    int index;
-    if((index = getIndexComando(comando)) == -1) return strdup(ERRO_COPIAR_INDEX_COMANDO);
-
-    Metadados* metadados;
-    lseek(fd, (index * BUFFER) + 4, SEEK_SET); 
-    if((metadados = readMetadados(fd)) == NULL) goto errosIndex;
-
-    if(isRemovido(metadados) == true)
-    {
-        goto errosIndexComMetadados;
-    
-    }else{
-        close(fd);
-
-        char* nome = getNome(metadados);
-        char* autor = getAuthors(metadados);
-        char* path = getPath(metadados);
-        int ano = getAno(metadados);
-
-        char resposta[RESPOSTA_TAM_MAX];
-        snprintf(resposta, RESPOSTA_TAM_MAX,"Title: %s\nAuthors: %s\nYear: %d\nPath: %s", nome, autor, ano, path);    
-
-        free(nome);
-        free(path);
-        free(autor);
-
-        return strdup(resposta);
-    }
-
-    errosIndexComMetadados: freeMetadados(metadados);
-    errosIndex:             close(fd);
-                            return strdup(ERRO_INDEX_INEXISTENTE);
-}
-
-
-char* executaComandoRemover(Comando* comando, char* caminhoMetadados)
-{
-    int fd; 
-    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
-    
-    char mensagem[BUFFER];
-    int index, indexComando;
-
-    if((indexComando = getIndexComando(comando)) == -1) 
-    {
-        close(fd);
-        return strdup(ERRO_COPIAR_INDEX_COMANDO);
-    }    
-
-    lseek(fd, 0, SEEK_SET);
-    read(fd, &index, sizeof(int));
-    if(index == -1 || index < indexComando) goto errosIndex;   
-
-    Metadados* metadados;
-    lseek(fd, (indexComando * BUFFER) + 4, SEEK_SET);
-    
-    if(!(metadados = readMetadados(fd))) goto errosIndex;
-
-    if(isRemovido(metadados) == true)
-    {
-        goto errosIndexComMetadados;
-
-    }else{
-        setRemovido(metadados);
-        lseek(fd, -BUFFER, SEEK_CUR);
-        writeMetadados(metadados, fd);
-        freeMetadados(metadados);
-        close(fd);
-
-        char resposta[RESPOSTA_TAM_MAX]; 
-        snprintf(resposta, RESPOSTA_TAM_MAX, "Index entry %d deleted", indexComando);
-        return strdup(resposta);
-    }
-
-    errosIndexComMetadados: freeMetadados(metadados);
-    errosIndex:             close(fd);
-                            return strdup(ERRO_INDEX_INEXISTENTE);
-}
-
-
-char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
-{
-    int fd, index;
-    int pipeGrep[2], pipeWc[2];
-    char resposta[RESPOSTA_TAM_MAX];
-    char* palavaraChave;
-
-    if ((index = getIndexComando(comando)) == -1) return strdup(ERRO_COPIAR_INDEX_COMANDO);
-    if ((palavaraChave = getPalavraChaveComando(comando)) == NULL) return strdup(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
-    if ((fd = open(caminhoMetadados, O_RDWR)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
-
-    lseek(fd, (index * BUFFER) + 4, SEEK_SET);
-    Metadados* metadados;
-    if (!(metadados = readMetadados(fd))) goto errosIndex;
-    if (isRemovido(metadados) == true) goto errosIndexComMetadados;
-
-    char* path = getPath(metadados);
-    char caminhoCompleto[TAMANHO_PATH * 2];
     snprintf(caminhoCompleto, TAMANHO_PATH * 2, "%s/%s", ficheirosDir, path);
     free(path);
+    return caminhoCompleto;
+}
 
-    if (!ficheiroExiste(caminhoCompleto)) 
+char* juntaRespostas(int numProcessos, int pipes[][2], int pids[])
+{
+    char respostaFinal[RESPOSTA_TAM_MAX] = "[";
+    int primeiro = 1;
+    
+    for (int i = 0; i < numProcessos; i++) 
     {
-        freeMetadados(metadados);
-        free(palavaraChave);
-        close(fd);
-        return strdup(ERRO_FICHEIRO_INEXISTENTE);
+        char buffer[RESPOSTA_TAM_MAX] = {0};
+        read(pipes[i][0], buffer, RESPOSTA_TAM_MAX);
+        close(pipes[i][0]);
+        waitpid(pids[i], NULL, 0);
+    
+        int len = strlen(buffer);
+        if (len >= 2) 
+        {
+            buffer[len - 1] = '\0';
+            char* resto = buffer + 1;
+    
+            if(strlen(resto) == 0) 
+                continue;
+    
+            if(!primeiro) 
+                strcat(respostaFinal, ", ");
+            strcat(respostaFinal, resto);
+            primeiro = 0;
+        }
+    }
+    
+    strcat(respostaFinal, "]");    
+    return strdup(respostaFinal);   
+}
+
+
+
+//* Executar programas externos
+
+bool contemPalavra(const char* palavra, const char* caminho) 
+{
+    int fildes[2];
+    pipe(fildes);
+
+    pid_t pid = fork();
+    if (pid == 0) 
+    {
+        dup2(fildes[1], STDOUT_FILENO);
+        close(fildes[0]);
+        close(fildes[1]);
+        execlp("grep", "grep", palavra, caminho, NULL);
+        _exit(EXIT_FAILURE);
     }
 
-    pipe(pipeGrep); // grep -> wc
-    pipe(pipeWc);   // wc -> pai
+    close(fildes[1]);
+    char buffer[BUFFER];
+    int n = read(fildes[0], buffer, BUFFER);
+    close(fildes[0]);
+
+    if(n>0)
+        return true;
+
+    return false;
+}
+
+
+int executaGrepWc(const char* palavra, const char* caminho, char* resposta) 
+{
+    int pipeGrep[2], pipeWc[2];
+    pipe(pipeGrep);
+    pipe(pipeWc);
 
     pid_t pid1 = fork();
-    if (pid1 == 0) {
+    if (pid1 == 0) 
+    {
         dup2(pipeGrep[1], STDOUT_FILENO);
-        close(pipeGrep[0]);
-        close(pipeGrep[1]);
-        close(pipeWc[0]);
-        close(pipeWc[1]);
-
-        execlp("grep", "grep", palavaraChave, caminhoCompleto, NULL);
+        close(pipeGrep[0]); close(pipeGrep[1]);
+        close(pipeWc[0]); close(pipeWc[1]);
+        execlp("grep", "grep", palavra, caminho, NULL);
         _exit(EXIT_FAILURE);
     }
 
@@ -199,123 +126,280 @@ char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, 
     {
         dup2(pipeGrep[0], STDIN_FILENO);
         dup2(pipeWc[1], STDOUT_FILENO);
-
-        close(pipeGrep[0]);
-        close(pipeGrep[1]);
-        close(pipeWc[0]);
-        close(pipeWc[1]);
-
+        close(pipeGrep[0]); close(pipeGrep[1]);
+        close(pipeWc[0]); close(pipeWc[1]);
         execlp("wc", "wc", "-l", NULL);
         _exit(EXIT_FAILURE);
     }
 
-    close(pipeGrep[0]);
-    close(pipeGrep[1]);
+    close(pipeGrep[0]); close(pipeGrep[1]);
     close(pipeWc[1]);
 
     int estado;
     waitpid(pid1, &estado, 0);
-    if (estado != 0) goto errosProcessoFilho;
-
+    if(estado != 0) return -1;
     waitpid(pid2, &estado, 0);
-    if (estado != 0) goto errosProcessoFilho;
+    if(estado != 0) return -1;
 
-    int n;
-    if ((n = read(pipeWc[0], resposta, RESPOSTA_TAM_MAX - 1)) <= 0) goto errosProcessoFilho;
-    resposta[strlen(resposta)-1] = '\0';
-
+    int n = read(pipeWc[0], resposta, RESPOSTA_TAM_MAX - 1);
     close(pipeWc[0]);
-    close(fd);
-    freeMetadados(metadados);
-    free(palavaraChave);
-    return strdup(resposta);
+    if(n <= 0) return -1;
 
-    errosIndexComMetadados: freeMetadados(metadados);
-    errosIndex:             free(palavaraChave);
-                            close(fd);
-                            return strdup(ERRO_INDEX_INEXISTENTE);
-
-    errosProcessoFilho:     close(pipeWc[0]);
-                            close(fd);
-                            freeMetadados(metadados);
-                            free(palavaraChave);
-                            return strdup(ERRO_PROCESSO_FILHO_FALHOU);
+    resposta[n - 1] = '\0';
+    return 0;
 }
 
 
-char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* ficheirosDir, int indexMaximo)
+
+//* Executa Comando Adicionar
+
+char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
 {
-    int fd, indexMax, fildes[2], n1, offset=1;
-    char resposta[RESPOSTA_TAM_MAX] = "[";
-    char* palavaraChave;
+    int fd = -1, index = 0;
+    Metadados* metadados = NULL;
 
-    if ((palavaraChave = getPalavraChaveComando(comando)) == NULL) return strdup(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
-    if ((fd = open(caminhoMetadados, O_RDWR)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+    if((fd = open(caminhoMetadados, O_RDWR | O_CREAT, 0666)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
 
-    if(indexMaximo == -1)
-        if((n1 = read(fd, &indexMax, sizeof(int))) < 0)
-        {
-            printf("VAI PO CARALHO\n"); 
-            return strdup(ERRO_COPIAR_INDEX_COMANDO); 
-        }
-    else
+    if(ficheiroVazio(caminhoMetadados)) 
     {
-        indexMax = indexMaximo; 
-        lseek(fd, 4, SEEK_SET); //Ignorar o index máximo
-    }   
+        write(fd, &index, sizeof(int));
+    } else {
+        read(fd, &index, sizeof(int));
+        index++;
+        lseek(fd, 0, SEEK_SET);
+        write(fd, &index, sizeof(int));
+    }
 
-    printf("Index é %d\n", indexMax);
-    for(int i=0; i<=indexMax; i++)
+    lseek(fd, 0, SEEK_END);
+    if(!(metadados = criaMetadados(comando))) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_DADOS_COMANDO);
+
+    char* path = getPath(metadados);
+    char caminhoCompleto[TAMANHO_PATH * 2];
+    snprintf(caminhoCompleto, sizeof(caminhoCompleto), "%s/%s", ficheirosDir, path);
+
+    if(!ficheiroExiste(caminhoCompleto)) 
     {
-        printf("Index é %d\n", indexMax);
-        Metadados* metadados;
-        if (!(metadados = readMetadados(fd))) 
-        {
-            break;
-        }
-        if (isRemovido(metadados) == true)
-        {
-            freeMetadados(metadados);
-            continue;
-        }
-        char* path = getPath(metadados);
-        char caminhoCompleto[TAMANHO_PATH * 2];
-        snprintf(caminhoCompleto, TAMANHO_PATH * 2, "%s/%s", ficheirosDir, path);
         free(path);
-        
-        if (!ficheiroExiste(caminhoCompleto)) 
+        return limparRecursosComando(fd, metadados, NULL, ERRO_FICHEIRO_INEXISTENTE);
+    }
+
+    writeMetadados(metadados, fd);
+
+    char resposta[RESPOSTA_TAM_MAX];
+    snprintf(resposta, RESPOSTA_TAM_MAX, "Document %d indexed", index);
+
+    free(path);
+    return limparRecursosComando(fd, metadados, NULL, resposta);
+}
+
+
+
+//* Executa Comando Consultar
+
+char* executaComandoConsultar(Comando* comando, char* caminhoMetadados)
+{
+    int fd = -1;
+    Metadados* metadados = NULL;
+
+    if((fd = open(caminhoMetadados, O_RDONLY)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+
+    int index = getIndexComando(comando);
+    if(index == -1) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_INDEX_COMANDO);
+
+    lseek(fd, (index * BUFFER) + 4, SEEK_SET);
+    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE);
+
+    char* nome = getNome(metadados);
+    char* autor = getAuthors(metadados);
+    char* path = getPath(metadados);
+    int ano = getAno(metadados);
+
+    char resposta[RESPOSTA_TAM_MAX];
+    snprintf(resposta, RESPOSTA_TAM_MAX, "Title: %s\nAuthors: %s\nYear: %d\nPath: %s", nome, autor, ano, path);
+
+    free(nome);
+    free(autor);
+    free(path);
+    return limparRecursosComando(fd, metadados, NULL, resposta);
+}
+
+
+
+//* Executa Comando Remover
+
+char* executaComandoRemover(Comando* comando, char* caminhoMetadados)
+{
+    int fd = -1;
+    Metadados* metadados = NULL;
+
+    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+
+    int indexMax = 0, index = getIndexComando(comando);
+    if(index == -1) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_INDEX_COMANDO);
+
+    read(fd, &indexMax, sizeof(int));
+    if(indexMax == -1 || index > indexMax) return limparRecursosComando(fd, NULL, NULL, ERRO_INDEX_INEXISTENTE);
+
+    lseek(fd, (index * BUFFER) + 4, SEEK_SET);
+    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE);
+
+    setRemovido(metadados);
+    lseek(fd, -BUFFER, SEEK_CUR);
+    writeMetadados(metadados, fd);
+
+    char resposta[RESPOSTA_TAM_MAX];
+    snprintf(resposta, RESPOSTA_TAM_MAX, "Index entry %d deleted", index);
+
+    return limparRecursosComando(fd, metadados, NULL, resposta);
+}
+
+
+
+//* Executa Comando Pesquisa Número de Linhas
+
+char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, char* ficheirosDir) 
+{
+    int fd = -1, index;
+    char* palavraChave = NULL;
+    Metadados* metadados = NULL;
+    char resposta[RESPOSTA_TAM_MAX];
+
+    if((index = getIndexComando(comando)) == -1) return strdup(ERRO_COPIAR_INDEX_COMANDO);
+
+    if((palavraChave = getPalavraChaveComando(comando)) == NULL) return strdup(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
+
+    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return limparRecursosComando(fd, NULL, palavraChave, ERRO_ABRIR_FICHEIRO);
+
+    lseek(fd, (index * BUFFER) + 4, SEEK_SET);
+    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, palavraChave, ERRO_INDEX_INEXISTENTE);
+
+    char* caminhoCompleto;
+    if(!(caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir))) return limparRecursosComando(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE);
+
+    if(!ficheiroExiste(caminhoCompleto)) return limparRecursosComando(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE);
+    if(executaGrepWc(palavraChave, caminhoCompleto, resposta) != 0) return limparRecursosComando(fd, metadados, palavraChave, ERRO_PROCESSO_FILHO_FALHOU);
+
+    return limparRecursosComando(fd, metadados, palavraChave, resposta);
+}
+
+
+
+//* Executa Comando Pesquisa Ids
+
+char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* ficheirosDir, int inicio, int fim)
+{
+    int fd = -1, indexMax = 0, offset = 1;
+    char* palavraChave = NULL;
+    char resposta[RESPOSTA_TAM_MAX] = "[";
+
+    if(!(palavraChave = getPalavraChaveComando(comando))) return strdup(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
+    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return limparRecursosComando(fd, NULL, palavraChave, ERRO_ABRIR_FICHEIRO);
+
+    if(fim == -1) 
+    {
+        if(read(fd, &indexMax, sizeof(int)) < 0) return limparRecursosComando(fd, NULL, palavraChave, ERRO_COPIAR_INDEX_COMANDO);
+    }else{
+        indexMax = fim;
+        lseek(fd, 4, SEEK_SET);
+    }
+
+    lseek(fd, (inicio * BUFFER) + 4, SEEK_SET);
+    for(int i = inicio; i <= indexMax; i++) 
+    {
+        Metadados* metadados = readMetadados(fd);
+        if(!metadados) break;
+        if(isRemovido(metadados)) 
         {
             freeMetadados(metadados);
             continue;
         }
 
-        pipe(fildes);
-        pid_t pid;
-        if((pid = fork()) == 0)
+        char* caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir);
+        if(!caminhoCompleto)
         {
-            dup2(fildes[1], STDOUT_FILENO);
-            close(fildes[0]);
-            close(fildes[1]);
-
-            execlp("grep", "grep", palavaraChave, caminhoCompleto, NULL);
-            _exit(EXIT_FAILURE); 
-
-        }else{
-            close(fildes[1]);
-            int nGrep;
-            char buffer[BUFFER];
-            if((nGrep = read(fildes[0], buffer, BUFFER)) > 0)
-                offset += snprintf(resposta + offset, RESPOSTA_TAM_MAX - offset, "%d, ", i);
-            close(fildes[0]);    
+            free(caminhoCompleto);
+            return limparRecursosComando(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE);
         }
+
+        if(ficheiroExiste(caminhoCompleto) && contemPalavra(palavraChave, caminhoCompleto)) 
+            offset += snprintf(resposta + offset, RESPOSTA_TAM_MAX - offset, "%d, ", i);
+
+        free(caminhoCompleto);
         freeMetadados(metadados);
     }
 
-    resposta[strlen(resposta)-2] = ']';
-    resposta[strlen(resposta)-1] = '\0';
+    if(offset > 1)
+    {
+        resposta[offset - 2] = ']';
+        resposta[offset - 1] = '\0';
+    }else{
+        strcat(resposta, "]");
+    }
+
     close(fd);
-    free(palavaraChave);
+    free(palavraChave);
     return strdup(resposta);
+}
+
+
+
+//* Executa Comando Pesquisa Ids com Vários Processos
+
+char* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+{
+    int fd, n, indexMax = 0, numProcessos = getNumProcessos(comando);
+
+    if (numProcessos == -1) return strdup(ERRO_COPIAR_NUM_PROCESSOS_COMANDO);
+    if((fd = open(caminhoMetadados, O_RDONLY)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+
+    if((n = read(fd, &indexMax, sizeof(int))) < 0) 
+    {
+        close(fd);
+        return strdup(ERRO_COPIAR_INDEX_COMANDO);
+    }
+    close(fd);
+
+    int segmento = (indexMax + 1) / numProcessos;
+    int resto = (indexMax + 1) % numProcessos;
+
+    int pipes[numProcessos][2];
+    pid_t pids[numProcessos];
+
+    for (int i = 0; i < numProcessos; i++) 
+    {
+        pipe(pipes[i]);
+
+        pid_t pid = fork();
+        if (pid == 0) 
+        {
+            close(pipes[i][0]);
+
+            int inicio = i * segmento, fim;
+            if (i < resto)
+            {
+                inicio += i;
+                fim = inicio + segmento - 1;
+            }else{
+                inicio += resto;
+                fim += inicio + segmento - 2;
+            }
+
+            Comando* subcomando = comandoMultiprocParaId(comando);
+
+            char* resposta = executaComandoPesquisaIds(subcomando, caminhoMetadados, ficheirosDir, inicio, fim);
+            write(pipes[i][1], resposta, strlen(resposta) + 1);
+
+            freeComando(subcomando);
+            free(resposta);
+            close(pipes[i][1]);
+            _exit(0);
+        }
+
+        pids[i] = pid;
+        close(pipes[i][1]);
+    }
+
+    return juntaRespostas(numProcessos, pipes, pids);
 }
 
 
@@ -332,7 +416,8 @@ char* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDi
         case CONSULTAR: resultado = executaComandoConsultar(comando, caminhoMetadados); break;
         case REMOVER: resultado = executaComandoRemover(comando, caminhoMetadados); break;
         case PESQUISA_NUM_LINHAS: resultado = executaComandoPesquisaNumLinhas(comando, caminhoMetadados, ficheirosDir); break;
-        case PESQUISA_IDS: resultado = executaComandoPesquisaIds(comando, caminhoMetadados, ficheirosDir, -1); break;
+        case PESQUISA_IDS: resultado = executaComandoPesquisaIds(comando, caminhoMetadados, ficheirosDir, 0, -1); break;
+        case PESQUISA_IDS_MULTIPROC: resultado = executaComandoPesquisaIdsMultiproc(comando, caminhoMetadados, ficheirosDir); break;
         case FECHAR: resultado = NULL; break;
         default: resultado = " "; break;
     }

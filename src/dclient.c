@@ -2,7 +2,7 @@
 
 #define PIPESERVER_NOME "pipeServer" //Nome que o pipe com nome para enviar mensagens aos servidor deverá ter
 #define PIPECLIENTE_NOME_MAX 50 //Número máximo de bytes que o nome do pipe com nome para receber mensagens do servidor deverá ter
-#define RESPOSTA_TAM_MAX 6000 //Número máximo de bytes que uma resposta pode ter
+#define RESPOSTA_TAM_MAX 200000 //Número máximo de bytes que uma resposta pode ter
 
 
 //* Main
@@ -19,7 +19,12 @@ int main(int argc, char* argv[])
     if((fifoServer = open(PIPESERVER_NOME, O_WRONLY)) == -1) return 1;
 
     comando = criaComando(argv+1, argc-1, pid);
-    if(comando==NULL) return 1;
+    if(comando==NULL) 
+    {
+        close(fifoServer);
+        unlink(fifoClienteNome);
+        return 1;
+    }
 
     writeComando(fifoServer, comando);
     freeComando(comando);
@@ -28,7 +33,11 @@ int main(int argc, char* argv[])
     char resposta[RESPOSTA_TAM_MAX];
     int n;
 
-    if((fifoCliente = open(fifoClienteNome, O_RDONLY)) == -1) return 1;
+    if((fifoCliente = open(fifoClienteNome, O_RDONLY)) == -1)
+    {
+        unlink(fifoClienteNome);
+        return 1;
+    }
     
     while(estadoResposta != 1)
     {
