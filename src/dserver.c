@@ -21,7 +21,7 @@ void processarComandoCliente(Comando* comandoAtual, const char* ficheirosDir)
 
     if((fifoCliente = open(nomeFifoCliente, O_WRONLY)) == -1) //Erro ao abrir o FIFO do cliente
     {
-        printf("%s", ERRO_FIFO_CLIENTE_INEXISTENTE);
+        perror(ERRO_FIFO_CLIENTE_INEXISTENTE);
         _exit(FECHAR);
         unlink(nomeFifoCliente);
     }
@@ -38,7 +38,7 @@ void processarComandoCliente(Comando* comandoAtual, const char* ficheirosDir)
     if (outputComando[0] == '\\') // Erro
     {
         write(fifoCliente, "!\n", 2);
-        printf("%s", outputComando + 1);
+        perror(outputComando + 1);
         free(outputComando);
         close(fifoCliente);
         _exit(0);
@@ -62,8 +62,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    int fifoServer, fifoCliente, estadoGeral = 0;
-    char nomeFifoCliente[PIPECLIENTE_NOME_MAX];
+    int fifoServer, estadoGeral = 0;
 
     mkfifo(PIPESERVER_NOME, 0666);
     if ((fifoServer = open(PIPESERVER_NOME, O_RDONLY)) == -1) 

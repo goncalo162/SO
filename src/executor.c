@@ -42,6 +42,7 @@ char* construirCaminhoCompleto(Metadados* metadados, const char* ficheirosDir)
     return caminhoCompleto;
 }
 
+
 char* juntaRespostas(int numProcessos, int pipes[][2], int pids[])
 {
     char respostaFinal[RESPOSTA_TAM_MAX] = "[";
@@ -157,8 +158,16 @@ char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* fi
 {
     int fd = -1, index = 0;
     Metadados* metadados = NULL;
+    char* caminhoCompleto = NULL;
 
     if((fd = open(caminhoMetadados, O_RDWR | O_CREAT, 0666)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+    if(!(metadados = criaMetadados(comando))) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_DADOS_COMANDO);
+    
+    if(!(caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir))) 
+    {
+        free(caminhoCompleto);
+        return limparRecursosComando(fd, metadados, NULL, ERRO_FICHEIRO_INEXISTENTE);
+    }
 
     if(ficheiroVazio(caminhoMetadados)) 
     {
@@ -171,24 +180,12 @@ char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* fi
     }
 
     lseek(fd, 0, SEEK_END);
-    if(!(metadados = criaMetadados(comando))) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_DADOS_COMANDO);
-
-    char* path = getPath(metadados);
-    char caminhoCompleto[TAMANHO_PATH * 2];
-    snprintf(caminhoCompleto, sizeof(caminhoCompleto), "%s/%s", ficheirosDir, path);
-
-    if(!ficheiroExiste(caminhoCompleto)) 
-    {
-        free(path);
-        return limparRecursosComando(fd, metadados, NULL, ERRO_FICHEIRO_INEXISTENTE);
-    }
-
     writeMetadados(metadados, fd);
 
     char resposta[RESPOSTA_TAM_MAX];
     snprintf(resposta, RESPOSTA_TAM_MAX, "Document %d indexed", index);
 
-    free(path);
+    free(caminhoCompleto);
     return limparRecursosComando(fd, metadados, NULL, resposta);
 }
 
@@ -374,7 +371,7 @@ char* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMetadado
         {
             close(pipes[i][0]);
 
-            int inicio = i * segmento, fim;
+            int inicio = i * segmento, fim = 0;
             if (i < resto)
             {
                 inicio += i;
