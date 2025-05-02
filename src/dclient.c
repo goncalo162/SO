@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
     }
 
     if(resposta[0]!='!')
-        printf("%s\n\0", resposta);
+        printf("%s\n", resposta);
         
     close(fifoCliente);
     unlink(fifoClienteNome);

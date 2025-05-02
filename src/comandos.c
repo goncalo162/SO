@@ -105,7 +105,9 @@ Comando* criaComandoPesquisaIds(char* palavraChave)
     Comando* nComando = malloc(sizeof(Comando));
     if (!nComando) return NULL;
     nComando->tipoComando = PESQUISA_IDS;
-    strncpy(nComando->dadosComando.comandoPesquisaIds.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE);
+    strncpy(nComando->dadosComando.comandoPesquisaIds.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE-1);
+    nComando->dadosComando.comandoPesquisaIds.palavraChave[TAMANHO_PALAVRA_CHAVE-1] = '\0';
+
     return nComando;
 }
 
@@ -116,7 +118,8 @@ Comando* criaComandoPesquisaNumLinhas(int index, char* palavraChave)
     if (!nComando) return NULL;
     nComando->tipoComando = PESQUISA_NUM_LINHAS;
     nComando->dadosComando.comandoPesquisaNumLinhas.index = index;
-    strncpy(nComando->dadosComando.comandoPesquisaNumLinhas.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE);
+    strncpy(nComando->dadosComando.comandoPesquisaNumLinhas.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE-1);
+    nComando->dadosComando.comandoPesquisaNumLinhas.palavraChave[TAMANHO_PALAVRA_CHAVE-1] = '\0';
     return nComando;
 }
 
@@ -126,7 +129,8 @@ Comando* criaComandoPesquisaIdsMultiproc(char* palavraChave, int numProc)
     Comando* nComando = malloc(sizeof(Comando));
     if (!nComando) return NULL;
     nComando->tipoComando = PESQUISA_IDS_MULTIPROC;
-    strncpy(nComando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE);
+    strncpy(nComando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE-1);
+    nComando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave[TAMANHO_PALAVRA_CHAVE-1] = '\0';
     nComando->dadosComando.comandoPesquisaIdsMultiproc.numProc = numProc;
     return nComando;
 }
@@ -139,9 +143,12 @@ Comando* criaComandoAdicionar(char* titulo, char* caminho, char* autores, int an
     nComando->tipoComando = ADICIONAR;
     nComando->dadosComando.comandoAdicionar.removido = false;
     nComando->dadosComando.comandoAdicionar.ano = ano;
-    strncpy(nComando->dadosComando.comandoAdicionar.titulo,titulo, TAMANHO_TITULO);
-    strncpy(nComando->dadosComando.comandoAdicionar.autores,autores, TAMANHO_AUTORES);
-    strncpy(nComando->dadosComando.comandoAdicionar.caminho,caminho, TAMANHO_PATH);
+    strncpy(nComando->dadosComando.comandoAdicionar.titulo,titulo, TAMANHO_TITULO-1);
+    nComando->dadosComando.comandoAdicionar.titulo[TAMANHO_TITULO-1] = '\0';
+    strncpy(nComando->dadosComando.comandoAdicionar.autores,autores, TAMANHO_AUTORES-1);
+    nComando->dadosComando.comandoAdicionar.autores[TAMANHO_AUTORES-1] = '\0';
+    strncpy(nComando->dadosComando.comandoAdicionar.caminho,caminho, TAMANHO_PATH-1);
+    nComando->dadosComando.comandoAdicionar.caminho[TAMANHO_PATH-1] = '\0';
 
     return nComando;
 }
@@ -192,7 +199,8 @@ Comando* comandoMultiprocParaId(Comando* comando)
 
     nComando = malloc(sizeof(Comando));
     nComando->tipoComando = PESQUISA_IDS;
-    strncpy(nComando->dadosComando.comandoPesquisaIds.palavraChave, comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave, TAMANHO_PALAVRA_CHAVE);
+    strncpy(nComando->dadosComando.comandoPesquisaIds.palavraChave, comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave, TAMANHO_PALAVRA_CHAVE-1);
+    nComando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave[TAMANHO_PALAVRA_CHAVE-1] = '\0';
     return nComando;
 }
 
@@ -237,9 +245,12 @@ int getDadosComandoAdicionar(Comando* comando, char nomeCopia[TAMANHO_TITULO], c
 {
     if(comando->tipoComando!=ADICIONAR) return 1;
     
-    strncpy(nomeCopia, comando->dadosComando.comandoAdicionar.titulo, TAMANHO_TITULO);
-    strncpy(autoresCopia, comando->dadosComando.comandoAdicionar.autores, TAMANHO_AUTORES);
-    strncpy(pathCopia, comando->dadosComando.comandoAdicionar.caminho, TAMANHO_PATH);
+    strncpy(nomeCopia, comando->dadosComando.comandoAdicionar.titulo, TAMANHO_TITULO-1);
+    nomeCopia[TAMANHO_TITULO-1] = '\0';
+    strncpy(autoresCopia, comando->dadosComando.comandoAdicionar.autores, TAMANHO_AUTORES-1);
+    autoresCopia[TAMANHO_AUTORES-1] = '\0';
+    strncpy(pathCopia, comando->dadosComando.comandoAdicionar.caminho, TAMANHO_PATH-1);
+    pathCopia[TAMANHO_PATH-1] = '\0';
     *anoCopia = comando->dadosComando.comandoAdicionar.ano;
     *removidoCopia = comando->dadosComando.comandoAdicionar.removido;
 
