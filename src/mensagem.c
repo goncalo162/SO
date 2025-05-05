@@ -148,14 +148,15 @@ char* readMensagem(int fd)
                 freePacote(pacoteAtual);
                 return NULL;
             }
-        }
-
-        if(pacoteAtual->ultimo == true)
-        {
-            freePacote(pacoteAtual);
-            estadoResposta = 1;
+            if(pacoteAtual->ultimo == true)
+            {
+                freePacote(pacoteAtual);
+                estadoResposta = 1;
+            }else{
+                freePacote(pacoteAtual);
+            }
         }else{
-            freePacote(pacoteAtual);
+            estadoResposta = 1;
         }
     }
 

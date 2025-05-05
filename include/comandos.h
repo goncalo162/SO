@@ -18,6 +18,7 @@ typedef enum tiposComando
     PESQUISA_IDS = 5,
     PESQUISA_IDS_MULTIPROC = 6,
     FECHAR = 255
+    
 } TipoComando;
 
 /* Estrutura de dados que representa um comando e os seus argumentos */

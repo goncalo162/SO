@@ -167,7 +167,7 @@ int executaGrepWc(const char* palavra, const char* caminho, char* resposta)
 
 //* Executa Comando Adicionar
 
-Mensagem* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+Mensagem* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* ficheirosDir, ServerAuxiliar* serveraux)
 {
     int fd = -1, index = 0;
     Metadados* metadados = NULL;
@@ -182,19 +182,26 @@ Mensagem* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char
         return limparRecursosComando(fd, metadados, NULL, ERRO_FICHEIRO_INEXISTENTE, true, -1);
     }
 
-    if(ficheiroVazio(caminhoMetadados)) 
+    if(isStackEmpty(serveraux))
     {
-        write(fd, &index, sizeof(int));
+        if(ficheiroVazio(caminhoMetadados)) 
+        {
+            write(fd, &index, sizeof(int));
+    
+        }else{
+            read(fd, &index, sizeof(int));
+            index++;
+            lseek(fd, 0, SEEK_SET);
+            write(fd, &index, sizeof(int));
+        }
+        lseek(fd, 0, SEEK_END);
+
     }else{
-        read(fd, &index, sizeof(int));
-        index++;
-        lseek(fd, 0, SEEK_SET);
-        write(fd, &index, sizeof(int));
+        index = getIndexCabeca(serveraux);
+        lseek(fd, (index * BUFFER) + 4, SEEK_SET);
     }
 
-    lseek(fd, 0, SEEK_END);
     writeMetadados(metadados, fd);
-
     char resposta[RESPOSTA_TAM_MAX];
     snprintf(resposta, RESPOSTA_TAM_MAX, "Document %d indexed", index);
 
@@ -206,7 +213,7 @@ Mensagem* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char
 
 //* Executa Comando Consultar
 
-Mensagem* executaComandoConsultar(Comando* comando, char* caminhoMetadados)
+Mensagem* executaComandoConsultar(Comando* comando, char* caminhoMetadados, ServerAuxiliar* serveraux)
 {
     int fd = -1;
     Metadados* metadados = NULL;
@@ -237,7 +244,7 @@ Mensagem* executaComandoConsultar(Comando* comando, char* caminhoMetadados)
 
 //* Executa Comando Remover
 
-Mensagem* executaComandoRemover(Comando* comando, char* caminhoMetadados)
+Mensagem* executaComandoRemover(Comando* comando, char* caminhoMetadados, ServerAuxiliar* serveraux)
 {
     int fd = -1;
     Metadados* metadados = NULL;
@@ -267,7 +274,7 @@ Mensagem* executaComandoRemover(Comando* comando, char* caminhoMetadados)
 
 //* Executa Comando Pesquisa Número de Linhas
 
-Mensagem* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, char* ficheirosDir) 
+Mensagem* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, char* ficheirosDir, ServerAuxiliar* serveraux) 
 {
     int fd = -1, index;
     char* palavraChave = NULL;
@@ -296,7 +303,7 @@ Mensagem* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadad
 
 //* Executa Comando Pesquisa Ids
 
-char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* ficheirosDir, int inicio, int fim)
+char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* ficheirosDir, int inicio, int fim, ServerAuxiliar* serveraux)
 {
     int fd = -1, indexMax = 0, offset = 1;
     char* palavraChave = NULL;
@@ -355,7 +362,7 @@ char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* 
 
 //* Executa Comando Pesquisa Ids com Vários Processos
 
-Mensagem* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+Mensagem* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMetadados, char* ficheirosDir, ServerAuxiliar* serveraux)
 {
     int fd, n, indexMax = 0, numProcessos = getNumProcessos(comando);  
 
@@ -405,7 +412,7 @@ Mensagem* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMeta
                 subcomando = comandoMultiprocParaId(comando);
             }
 
-            char* resposta = executaComandoPesquisaIds(subcomando, caminhoMetadados, ficheirosDir, inicio, fim);
+            char* resposta = executaComandoPesquisaIds(subcomando, caminhoMetadados, ficheirosDir, inicio, fim, serveraux);
             write(pipes[i][1], resposta, strlen(resposta) + 1);
 
             freeComando(subcomando);
@@ -425,18 +432,18 @@ Mensagem* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMeta
 
 //* Funções de Execução dos Comandos
 
-Mensagem* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+Mensagem* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDir, ServerAuxiliar* serveraux)
 {
     Mensagem* resultado = NULL;
     int tipo = getTipoComando(comando);
     switch(tipo)
     {
-        case ADICIONAR: resultado = executaComandoAdicionar(comando, caminhoMetadados, ficheirosDir); break; 
-        case CONSULTAR: resultado = executaComandoConsultar(comando, caminhoMetadados); break;
-        case REMOVER: resultado = executaComandoRemover(comando, caminhoMetadados); break;
-        case PESQUISA_NUM_LINHAS: resultado = executaComandoPesquisaNumLinhas(comando, caminhoMetadados, ficheirosDir); break;
-        case PESQUISA_IDS: resultado = executaComandoPesquisaIdsMultiproc(comando, caminhoMetadados, ficheirosDir); break;
-        case PESQUISA_IDS_MULTIPROC: resultado = executaComandoPesquisaIdsMultiproc(comando, caminhoMetadados, ficheirosDir); break;
+        case ADICIONAR: resultado = executaComandoAdicionar(comando, caminhoMetadados, ficheirosDir, serveraux); break; 
+        case CONSULTAR: resultado = executaComandoConsultar(comando, caminhoMetadados, serveraux); break;
+        case REMOVER: resultado = executaComandoRemover(comando, caminhoMetadados, serveraux); break;
+        case PESQUISA_NUM_LINHAS: resultado = executaComandoPesquisaNumLinhas(comando, caminhoMetadados, ficheirosDir, serveraux); break;
+        case PESQUISA_IDS: resultado = executaComandoPesquisaIdsMultiproc(comando, caminhoMetadados, ficheirosDir, serveraux); break;
+        case PESQUISA_IDS_MULTIPROC: resultado = executaComandoPesquisaIdsMultiproc(comando, caminhoMetadados, ficheirosDir, serveraux); break;
         case FECHAR: resultado = NULL; break;
         default: resultado = NULL; break;
     }

@@ -39,6 +39,12 @@ void freeMetadados(Metadados* metadados)
 }
 
 
+void freeMetadadosVoid(void* metadados)
+{
+    Metadados* nMetadados = (Metadados*)metadados;
+    freeMetadados(nMetadados); 
+}
+
 
 //* Escrever e ler no ficheiro
 
