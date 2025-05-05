@@ -13,6 +13,7 @@ Metadados* criaMetadados(Comando* comando);
 
 void freeMetadados(Metadados* metadados);
 
+void freeMetadadosVoid(void* metadados);
 
 bool isRemovido(Metadados* metadados);
 

@@ -7,7 +7,7 @@
 typedef struct metadados Metadados;
 
 //Recebe um comando e um caminho para o ficheiro de metadados e executa o comando
-Mensagem* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDir);
+Mensagem* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDir, ServerAuxiliar* serveraux);
 
 
 #endif

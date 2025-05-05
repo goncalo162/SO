@@ -18,7 +18,11 @@ int main(int argc, char* argv[])
     snprintf(fifoClienteNome, PIPECLIENTE_NOME_MAX, "pipeCliente%d", pid);
     mkfifo(fifoClienteNome, 0666);
 
-    if((fifoServer = open(PIPESERVER_NOME, O_WRONLY)) == -1) return 1;
+    if((fifoServer = open(PIPESERVER_NOME, O_WRONLY)) == -1) 
+    {
+        unlink(fifoClienteNome);
+        return 1;
+    }
 
     comando = criaComando(argv+1, argc-1, pid);
     if(comando==NULL) 
