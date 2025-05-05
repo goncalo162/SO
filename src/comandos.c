@@ -1,10 +1,4 @@
 #include "comandos.h"
-#include <stdio.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
-
-
 
 //* Typedef
 
@@ -16,18 +10,15 @@ struct comandoAdicionar
     int ano;
 };
 
-
 struct comandoConsulta
 {
     int index;
 };
 
-
 struct comandoRemover
 {
     int index;
 };
-
 
 struct comandoPesquisaNumLinhas
 {
@@ -35,19 +26,11 @@ struct comandoPesquisaNumLinhas
     char palavraChave[TAMANHO_PALAVRA_CHAVE];
 };
 
-
-struct comandoPesquisaIds
-{
-    char palavraChave[TAMANHO_PALAVRA_CHAVE];
-};
-
-
 struct comandoPesquisaIdsMultiproc
 {
     char palavraChave[TAMANHO_PALAVRA_CHAVE];
     int numProc;
 };
-
 
 typedef struct comando
 {
@@ -59,14 +42,12 @@ typedef struct comando
         struct comandoAdicionar comandoAdicionar;
         struct comandoConsulta comandoConsulta;
         struct comandoRemover comandoRemover;
-        struct comandoPesquisaIds comandoPesquisaIds;
         struct comandoPesquisaNumLinhas comandoPesquisaNumLinhas;
         struct comandoPesquisaIdsMultiproc comandoPesquisaIdsMultiproc;
 
     } dadosComando;
 
 } Comando;
-
 
 
 //* Funções Auxiliares
@@ -79,7 +60,6 @@ Comando* criaComandoFechar()
     return nComando;
 }
 
-
 Comando* criaComandoConsulta(int index) 
 {
     Comando* nComando = malloc(sizeof(Comando));
@@ -89,25 +69,12 @@ Comando* criaComandoConsulta(int index)
     return nComando;
 }
 
-
 Comando* criaComandoRemover(int index)  
 {
     Comando* nComando = malloc(sizeof(Comando));
     if (!nComando) return NULL;
     nComando->tipoComando = REMOVER;
     nComando->dadosComando.comandoRemover.index = index;
-    return nComando;
-}
-
-
-Comando* criaComandoPesquisaIds(char* palavraChave) 
-{
-    Comando* nComando = malloc(sizeof(Comando));
-    if (!nComando) return NULL;
-    nComando->tipoComando = PESQUISA_IDS;
-    strncpy(nComando->dadosComando.comandoPesquisaIds.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE-1);
-    nComando->dadosComando.comandoPesquisaIds.palavraChave[TAMANHO_PALAVRA_CHAVE-1] = '\0';
-
     return nComando;
 }
 
@@ -123,18 +90,16 @@ Comando* criaComandoPesquisaNumLinhas(int index, char* palavraChave)
     return nComando;
 }
 
-
 Comando* criaComandoPesquisaIdsMultiproc(char* palavraChave, int numProc) 
 {
     Comando* nComando = malloc(sizeof(Comando));
     if (!nComando) return NULL;
-    nComando->tipoComando = PESQUISA_IDS_MULTIPROC;
+    nComando->tipoComando = (numProc == 1) ? PESQUISA_IDS : PESQUISA_IDS_MULTIPROC;
     strncpy(nComando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave, palavraChave, TAMANHO_PALAVRA_CHAVE-1);
     nComando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave[TAMANHO_PALAVRA_CHAVE-1] = '\0';
     nComando->dadosComando.comandoPesquisaIdsMultiproc.numProc = numProc;
     return nComando;
 }
- 
 
 Comando* criaComandoAdicionar(char* titulo, char* caminho, char* autores, int ano) 
 {
@@ -154,7 +119,6 @@ Comando* criaComandoAdicionar(char* titulo, char* caminho, char* autores, int an
 }
 
 
-
 //* Funções de Inicialização
 
 Comando* criaComando(char* argumentos[], int tamanho, pid_t pid) 
@@ -169,7 +133,7 @@ Comando* criaComando(char* argumentos[], int tamanho, pid_t pid)
         case 2:
             if (strcmp("-c", argumentos[0]) == 0 && isNumero(argumentos[1])) nComando = criaComandoConsulta(atoi(argumentos[1]));
             else if (strcmp("-d", argumentos[0]) == 0 && isNumero(argumentos[1])) nComando = criaComandoRemover(atoi(argumentos[1]));
-            else if (strcmp("-s", argumentos[0]) == 0) nComando = criaComandoPesquisaIds(argumentos[1]);
+            else if (strcmp("-s", argumentos[0]) == 0) nComando = criaComandoPesquisaIdsMultiproc(argumentos[1], 1);
             else return NULL;
             break;
         case 3:
@@ -191,19 +155,11 @@ Comando* criaComando(char* argumentos[], int tamanho, pid_t pid)
     return nComando;
 }
 
-
 Comando* comandoMultiprocParaId(Comando* comando)
 {
-    Comando* nComando = NULL;
     if(comando->tipoComando != PESQUISA_IDS_MULTIPROC) return NULL;
-
-    nComando = malloc(sizeof(Comando));
-    nComando->tipoComando = PESQUISA_IDS;
-    strncpy(nComando->dadosComando.comandoPesquisaIds.palavraChave, comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave, TAMANHO_PALAVRA_CHAVE-1);
-    nComando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave[TAMANHO_PALAVRA_CHAVE-1] = '\0';
-    return nComando;
+    return criaComandoPesquisaIdsMultiproc(comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave, 1);
 }
-
 
 
 //* Free
@@ -214,14 +170,12 @@ void freeComando(Comando* comando)
 }
 
 
-
 //* Escrever e ler no ficheiro
 
 int writeComando(int fd, Comando* comando) 
 {
     return write(fd, comando, sizeof(Comando));
 }
-
 
 Comando* readComando(int fd, int* n) 
 {
@@ -236,7 +190,6 @@ Comando* readComando(int fd, int* n)
 
     return comando;
 }
-
 
 
 //* Getters
@@ -257,7 +210,6 @@ int getDadosComandoAdicionar(Comando* comando, char nomeCopia[TAMANHO_TITULO], c
     return 0;
 }
 
-
 int getIndexComando(Comando* comando)
 {
     if(comando->tipoComando == CONSULTAR) return comando->dadosComando.comandoConsulta.index;
@@ -267,30 +219,29 @@ int getIndexComando(Comando* comando)
     return -1;
 }
 
-
 char* getPalavraChaveComando(Comando* comando)
 {
-    if(comando->tipoComando == PESQUISA_NUM_LINHAS) return strdup(comando->dadosComando.comandoPesquisaNumLinhas.palavraChave);
-    if(comando->tipoComando == PESQUISA_IDS) return strdup(comando->dadosComando.comandoPesquisaIds.palavraChave);
-    if(comando->tipoComando == PESQUISA_IDS_MULTIPROC) return strdup(comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave);
+    if(comando->tipoComando == PESQUISA_NUM_LINHAS) 
+        return strdup(comando->dadosComando.comandoPesquisaNumLinhas.palavraChave);
+    
+    if(comando->tipoComando == PESQUISA_IDS || comando->tipoComando == PESQUISA_IDS_MULTIPROC)
+        return strdup(comando->dadosComando.comandoPesquisaIdsMultiproc.palavraChave);
 
     return NULL;
 }
-
 
 int getTipoComando(Comando* comando)
 {
     return comando->tipoComando;
 }
 
-
 int getNumProcessos(Comando* comando)
 {
-    if(comando->tipoComando == PESQUISA_IDS_MULTIPROC) return comando->dadosComando.comandoPesquisaIdsMultiproc.numProc;
+    if(comando->tipoComando == PESQUISA_IDS || comando->tipoComando == PESQUISA_IDS_MULTIPROC)
+        return comando->dadosComando.comandoPesquisaIdsMultiproc.numProc;
 
     return -1;
 }
-
 
 pid_t getPidCliente(Comando* comando)
 {

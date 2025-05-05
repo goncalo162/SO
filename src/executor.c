@@ -1,26 +1,39 @@
 #include "executor.h"
 
 #define RESPOSTA_TAM_MAX 200000 //Número máximo de bytes que uma resposta pode ter
-#define ERRO_ABRIR_FICHEIRO "\\ERRO! Não foi possível abrir um ficheiro\n\0"
-#define ERRO_COPIAR_DADOS_COMANDO "\\ERRO! Não foi possível copiar os dados do comando\n\0"
-#define ERRO_COPIAR_INDEX_COMANDO "\\ERRO! Não foi possível copiar o index do comando\n\0"
-#define ERRO_COPIAR_NUM_PROCESSOS_COMANDO "\\ERRO! Não foi possível copiar o número de processos do comando\n\0"
-#define ERRO_COPIAR_PALAVRA_CHAVE_COMANDO "\\ERRO! Não foi possível copiar a palavra chave do comando\n\0"
-#define ERRO_FICHEIRO_INEXISTENTE "\\ERRO! Esse ficheiro não existe na diretoria de ficheiros\n\0"
-#define ERRO_INDEX_INEXISTENTE "\\ERRO! Esse index não existe no dataset ou foi removido\n\0"
-#define ERRO_LER_INDEXMAX "\\ERRO! Não foi possível ler o index máximo do ficheiro\n\0"
-#define ERRO_PROCESSO_FILHO_FALHOU "\\ERRO! Processo filho falhou\n\0"
+#define ERRO_ABRIR_FICHEIRO "ERRO! Não foi possível abrir um ficheiro"
+#define ERRO_COPIAR_DADOS_COMANDO "ERRO! Não foi possível copiar os dados do comando"
+#define ERRO_COPIAR_INDEX_COMANDO "ERRO! Não foi possível copiar o index do comando"
+#define ERRO_COPIAR_NUM_PROCESSOS_COMANDO "ERRO! Não foi possível copiar o número de processos do comando"
+#define ERRO_COPIAR_PALAVRA_CHAVE_COMANDO "ERRO! Não foi possível copiar a palavra chave do comando"
+#define ERRO_FICHEIRO_INEXISTENTE "ERRO! Esse ficheiro não existe na diretoria de ficheiros"
+#define ERRO_INDEX_INEXISTENTE "ERRO! Esse index não existe no dataset ou foi removido"
+#define ERRO_LER_INDEXMAX "ERRO! Não foi possível ler o index máximo do ficheiro"
+#define ERRO_PROCESSO_FILHO_FALHOU "ERRO! Processo filho falhou"
+#define DEVOLVE_MENSAGEM_ERRO(texto) criaMensagem(-1, true, texto) //Macro que chama criaMensagem para erros
 
 
 
 //* Funções Genéricas
 
-char* limparRecursosComando(int fd, Metadados* metadados, char* palavraChave, const char* mensagem) 
+Mensagem* limparRecursosComando(int fd, Metadados* metadados, char* palavraChave, char* mensagem, bool erro, int index) 
 {
     if(fd != -1) close(fd);
     if(metadados) freeMetadados(metadados);
     if(palavraChave) free(palavraChave);
-    return strdup(mensagem);
+    if(erro)
+        return DEVOLVE_MENSAGEM_ERRO(mensagem);
+    
+    return criaMensagem(index, false, mensagem);
+}
+
+char* limparRecursosString(int fd, Metadados* metadados, char* palavraChave, char* mensagem) 
+{
+    if(fd != -1) close(fd);
+    if(metadados) freeMetadados(metadados);
+    if(palavraChave) free(palavraChave);
+    
+    return mensagem;
 }
 
 
@@ -30,7 +43,7 @@ char* construirCaminhoCompleto(Metadados* metadados, const char* ficheirosDir)
     if(!path) return NULL;
 
     char* caminhoCompleto = malloc(sizeof(char) * TAMANHO_PATH * 2);
-    if (!caminhoCompleto) 
+    if(!caminhoCompleto) 
     {
         free(path);
         free(caminhoCompleto);
@@ -43,7 +56,7 @@ char* construirCaminhoCompleto(Metadados* metadados, const char* ficheirosDir)
 }
 
 
-char* juntaRespostas(int numProcessos, int pipes[][2], int pids[])
+Mensagem* juntaRespostas(int numProcessos, int pipes[][2], int pids[])
 {
     char respostaFinal[RESPOSTA_TAM_MAX] = "[";
     int primeiro = 1;
@@ -72,7 +85,7 @@ char* juntaRespostas(int numProcessos, int pipes[][2], int pids[])
     }
     
     strcat(respostaFinal, "]");    
-    return strdup(respostaFinal);   
+    return criaMensagem(-1, false, respostaFinal);   
 }
 
 
@@ -154,25 +167,25 @@ int executaGrepWc(const char* palavra, const char* caminho, char* resposta)
 
 //* Executa Comando Adicionar
 
-char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+Mensagem* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
 {
     int fd = -1, index = 0;
     Metadados* metadados = NULL;
     char* caminhoCompleto = NULL;
 
-    if((fd = open(caminhoMetadados, O_RDWR | O_CREAT, 0666)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
-    if(!(metadados = criaMetadados(comando))) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_DADOS_COMANDO);
+    if((fd = open(caminhoMetadados, O_RDWR | O_CREAT, 0666)) == -1) return DEVOLVE_MENSAGEM_ERRO(ERRO_ABRIR_FICHEIRO);
+    if(!(metadados = criaMetadados(comando))) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_DADOS_COMANDO, true, -1);
     
     if(!(caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir))) 
     {
         free(caminhoCompleto);
-        return limparRecursosComando(fd, metadados, NULL, ERRO_FICHEIRO_INEXISTENTE);
+        return limparRecursosComando(fd, metadados, NULL, ERRO_FICHEIRO_INEXISTENTE, true, -1);
     }
 
     if(ficheiroVazio(caminhoMetadados)) 
     {
         write(fd, &index, sizeof(int));
-    } else {
+    }else{
         read(fd, &index, sizeof(int));
         index++;
         lseek(fd, 0, SEEK_SET);
@@ -186,25 +199,25 @@ char* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char* fi
     snprintf(resposta, RESPOSTA_TAM_MAX, "Document %d indexed", index);
 
     free(caminhoCompleto);
-    return limparRecursosComando(fd, metadados, NULL, resposta);
+    return limparRecursosComando(fd, metadados, NULL, resposta, false, -1);
 }
 
 
 
 //* Executa Comando Consultar
 
-char* executaComandoConsultar(Comando* comando, char* caminhoMetadados)
+Mensagem* executaComandoConsultar(Comando* comando, char* caminhoMetadados)
 {
     int fd = -1;
     Metadados* metadados = NULL;
 
-    if((fd = open(caminhoMetadados, O_RDONLY)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+    if((fd = open(caminhoMetadados, O_RDONLY)) == -1) return DEVOLVE_MENSAGEM_ERRO(ERRO_ABRIR_FICHEIRO);
 
     int index = getIndexComando(comando);
-    if(index == -1) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_INDEX_COMANDO);
+    if(index == -1) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_INDEX_COMANDO, true, -1);
 
     lseek(fd, (index * BUFFER) + 4, SEEK_SET);
-    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE);
+    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE, true, -1);
 
     char* nome = getNome(metadados);
     char* autor = getAuthors(metadados);
@@ -217,28 +230,28 @@ char* executaComandoConsultar(Comando* comando, char* caminhoMetadados)
     free(nome);
     free(autor);
     free(path);
-    return limparRecursosComando(fd, metadados, NULL, resposta);
+    return limparRecursosComando(fd, metadados, NULL, resposta, false, -1);
 }
 
 
 
 //* Executa Comando Remover
 
-char* executaComandoRemover(Comando* comando, char* caminhoMetadados)
+Mensagem* executaComandoRemover(Comando* comando, char* caminhoMetadados)
 {
     int fd = -1;
     Metadados* metadados = NULL;
 
-    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return DEVOLVE_MENSAGEM_ERRO(ERRO_ABRIR_FICHEIRO);
 
     int indexMax = 0, index = getIndexComando(comando);
-    if(index == -1) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_INDEX_COMANDO);
+    if(index == -1) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_INDEX_COMANDO, true, -1);
 
     read(fd, &indexMax, sizeof(int));
-    if(indexMax == -1 || index > indexMax) return limparRecursosComando(fd, NULL, NULL, ERRO_INDEX_INEXISTENTE);
+    if(indexMax == -1 || index > indexMax) return limparRecursosComando(fd, NULL, NULL, ERRO_INDEX_INEXISTENTE, true, -1);
 
     lseek(fd, (index * BUFFER) + 4, SEEK_SET);
-    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE);
+    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE, true, -1);
 
     setRemovido(metadados);
     lseek(fd, -BUFFER, SEEK_CUR);
@@ -247,36 +260,36 @@ char* executaComandoRemover(Comando* comando, char* caminhoMetadados)
     char resposta[RESPOSTA_TAM_MAX];
     snprintf(resposta, RESPOSTA_TAM_MAX, "Index entry %d deleted", index);
 
-    return limparRecursosComando(fd, metadados, NULL, resposta);
+    return limparRecursosComando(fd, metadados, NULL, resposta, false, index);
 }
 
 
 
 //* Executa Comando Pesquisa Número de Linhas
 
-char* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, char* ficheirosDir) 
+Mensagem* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadados, char* ficheirosDir) 
 {
     int fd = -1, index;
     char* palavraChave = NULL;
     Metadados* metadados = NULL;
     char resposta[RESPOSTA_TAM_MAX];
 
-    if((index = getIndexComando(comando)) == -1) return strdup(ERRO_COPIAR_INDEX_COMANDO);
+    if((index = getIndexComando(comando)) == -1) return DEVOLVE_MENSAGEM_ERRO(ERRO_COPIAR_INDEX_COMANDO);
 
-    if((palavraChave = getPalavraChaveComando(comando)) == NULL) return strdup(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
+    if((palavraChave = getPalavraChaveComando(comando)) == NULL) return DEVOLVE_MENSAGEM_ERRO(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
 
-    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return limparRecursosComando(fd, NULL, palavraChave, ERRO_ABRIR_FICHEIRO);
+    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return limparRecursosComando(fd, NULL, palavraChave, ERRO_ABRIR_FICHEIRO, true, -1);
 
     lseek(fd, (index * BUFFER) + 4, SEEK_SET);
-    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, palavraChave, ERRO_INDEX_INEXISTENTE);
+    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, palavraChave, ERRO_INDEX_INEXISTENTE, true, -1);
 
     char* caminhoCompleto;
-    if(!(caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir))) return limparRecursosComando(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE);
+    if(!(caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir))) return limparRecursosComando(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE, true, -1);
 
-    if(!ficheiroExiste(caminhoCompleto)) return limparRecursosComando(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE);
-    if(executaGrepWc(palavraChave, caminhoCompleto, resposta) != 0) return limparRecursosComando(fd, metadados, palavraChave, ERRO_PROCESSO_FILHO_FALHOU);
+    if(!ficheiroExiste(caminhoCompleto)) return limparRecursosComando(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE, true, -1);
+    if(executaGrepWc(palavraChave, caminhoCompleto, resposta) != 0) return limparRecursosComando(fd, metadados, palavraChave, ERRO_PROCESSO_FILHO_FALHOU, true, -1);
 
-    return limparRecursosComando(fd, metadados, palavraChave, resposta);
+    return limparRecursosComando(fd, metadados, palavraChave, resposta, false, -1);
 }
 
 
@@ -290,11 +303,11 @@ char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* 
     char resposta[RESPOSTA_TAM_MAX] = "[";
 
     if(!(palavraChave = getPalavraChaveComando(comando))) return strdup(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
-    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return limparRecursosComando(fd, NULL, palavraChave, ERRO_ABRIR_FICHEIRO);
+    if((fd = open(caminhoMetadados, O_RDWR)) == -1) return limparRecursosString(fd, NULL, palavraChave, ERRO_ABRIR_FICHEIRO);
 
     if(fim == -1) 
     {
-        if(read(fd, &indexMax, sizeof(int)) < 0) return limparRecursosComando(fd, NULL, palavraChave, ERRO_COPIAR_INDEX_COMANDO);
+        if(read(fd, &indexMax, sizeof(int)) < 0) return limparRecursosString(fd, NULL, palavraChave, ERRO_COPIAR_INDEX_COMANDO);
     }else{
         indexMax = fim;
         lseek(fd, 4, SEEK_SET);
@@ -315,7 +328,7 @@ char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* 
         if(!caminhoCompleto)
         {
             free(caminhoCompleto);
-            return limparRecursosComando(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE);
+            return limparRecursosString(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE);
         }
 
         if(ficheiroExiste(caminhoCompleto) && contemPalavra(palavraChave, caminhoCompleto)) 
@@ -342,17 +355,17 @@ char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* 
 
 //* Executa Comando Pesquisa Ids com Vários Processos
 
-char* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+Mensagem* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
 {
-    int fd, n, indexMax = 0, numProcessos = getNumProcessos(comando);
+    int fd, n, indexMax = 0, numProcessos = getNumProcessos(comando);  
 
-    if (numProcessos == -1) return strdup(ERRO_COPIAR_NUM_PROCESSOS_COMANDO);
-    if((fd = open(caminhoMetadados, O_RDONLY)) == -1) return strdup(ERRO_ABRIR_FICHEIRO);
+    if (numProcessos == -1) return DEVOLVE_MENSAGEM_ERRO(ERRO_COPIAR_NUM_PROCESSOS_COMANDO);
+    if((fd = open(caminhoMetadados, O_RDONLY)) == -1) return DEVOLVE_MENSAGEM_ERRO(ERRO_ABRIR_FICHEIRO);
 
     if((n = read(fd, &indexMax, sizeof(int))) < 0) 
     {
         close(fd);
-        return strdup(ERRO_COPIAR_INDEX_COMANDO);
+        return DEVOLVE_MENSAGEM_ERRO(ERRO_COPIAR_INDEX_COMANDO);
     }
     close(fd);
 
@@ -372,16 +385,25 @@ char* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMetadado
             close(pipes[i][0]);
 
             int inicio = i * segmento, fim = 0;
-            if (i < resto)
             {
-                inicio += i;
-                fim = inicio + segmento - 1;
-            }else{
-                inicio += resto;
-                fim += inicio + segmento - 2;
+                if(i < resto)
+                {
+                    inicio += i;
+                    fim = inicio + segmento - 1;
+                }else{
+                    inicio += resto;
+                    fim += inicio + segmento - 2;
+                }
             }
 
-            Comando* subcomando = comandoMultiprocParaId(comando);
+            Comando* subcomando = NULL;
+            if(numProcessos == 1)
+            {
+                fim = -1;
+                subcomando = comando;
+            }else{
+                subcomando = comandoMultiprocParaId(comando);
+            }
 
             char* resposta = executaComandoPesquisaIds(subcomando, caminhoMetadados, ficheirosDir, inicio, fim);
             write(pipes[i][1], resposta, strlen(resposta) + 1);
@@ -403,9 +425,9 @@ char* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMetadado
 
 //* Funções de Execução dos Comandos
 
-char* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
+Mensagem* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDir)
 {
-    char* resultado = NULL;
+    Mensagem* resultado = NULL;
     int tipo = getTipoComando(comando);
     switch(tipo)
     {
@@ -413,10 +435,10 @@ char* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDi
         case CONSULTAR: resultado = executaComandoConsultar(comando, caminhoMetadados); break;
         case REMOVER: resultado = executaComandoRemover(comando, caminhoMetadados); break;
         case PESQUISA_NUM_LINHAS: resultado = executaComandoPesquisaNumLinhas(comando, caminhoMetadados, ficheirosDir); break;
-        case PESQUISA_IDS: resultado = executaComandoPesquisaIds(comando, caminhoMetadados, ficheirosDir, 0, -1); break;
+        case PESQUISA_IDS: resultado = executaComandoPesquisaIdsMultiproc(comando, caminhoMetadados, ficheirosDir); break;
         case PESQUISA_IDS_MULTIPROC: resultado = executaComandoPesquisaIdsMultiproc(comando, caminhoMetadados, ficheirosDir); break;
         case FECHAR: resultado = NULL; break;
-        default: resultado = " "; break;
+        default: resultado = NULL; break;
     }
     free(ficheirosDir);
     return resultado;

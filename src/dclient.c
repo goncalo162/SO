@@ -1,8 +1,10 @@
 #include "comandos.h"
+#include "mensagem.h"
 
 #define PIPESERVER_NOME "pipeServer" //Nome que o pipe com nome para enviar mensagens aos servidor deverá ter
 #define PIPECLIENTE_NOME_MAX 50 //Número máximo de bytes que o nome do pipe com nome para receber mensagens do servidor deverá ter
 #define RESPOSTA_TAM_MAX 200000 //Número máximo de bytes que uma resposta pode ter
+
 
 
 //* Main
@@ -10,7 +12,7 @@
 int main(int argc, char* argv[])
 {
     Comando* comando;
-    int fifoServer, fifoCliente, estadoResposta = 0;
+    int fifoServer, fifoCliente;
     pid_t pid = getpid();
     char fifoClienteNome[PIPECLIENTE_NOME_MAX];
     snprintf(fifoClienteNome, PIPECLIENTE_NOME_MAX, "pipeCliente%d", pid);
@@ -30,24 +32,15 @@ int main(int argc, char* argv[])
     freeComando(comando);
     close(fifoServer);
 
-    char resposta[RESPOSTA_TAM_MAX];
-    int n;
-
+    char* resposta = NULL;
     if((fifoCliente = open(fifoClienteNome, O_RDONLY)) == -1)
     {
         unlink(fifoClienteNome);
         return 1;
     }
     
-    while(estadoResposta != 1)
-    {
-        n = read(fifoCliente, resposta, RESPOSTA_TAM_MAX);
-
-        if(n>0)
-            estadoResposta = 1;
-    }
-
-    if(resposta[0]!='!')
+    resposta = readMensagem(fifoCliente);
+    if(resposta != NULL)
         printf("%s\n", resposta);
         
     close(fifoCliente);

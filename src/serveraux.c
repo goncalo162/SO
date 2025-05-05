@@ -1,6 +1,4 @@
 #include "utils.h"
-#include <glib.h>
-#include <stdbool.h>
 
 typedef struct serverAux
 {
