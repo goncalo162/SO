@@ -2,11 +2,12 @@
 #define EXECUTOR
 
 #include "serveraux.h"
+#include "mensagem.h"
 
 typedef struct metadados Metadados;
 
 //Recebe um comando e um caminho para o ficheiro de metadados e executa o comando
-char* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDir);
+Mensagem* executaComando(Comando* comando, char* caminhoMetadados, char* ficheirosDir);
 
 
 #endif

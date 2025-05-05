@@ -5,8 +5,9 @@
 #define PIPESERVER_NOME "pipeServer"
 #define PIPECLIENTE_NOME_MAX 60
 #define MENSAGEM_FECHO "Server is shuting down"
-#define ERRO_FIFO_CLIENTE_INEXISTENTE "ERRO! Não foi possível abrir o FIFO do cliente\n\0"
-#define ERRO_FIFO_SERVIDOR_INEXISTENTE "ERRO! Não foi possível abrir o FIFO do servidor\n\0"
+#define ERRO_FIFO_CLIENTE_INEXISTENTE "ERRO! Não foi possível abrir o FIFO do cliente"
+#define ERRO_FIFO_SERVIDOR_INEXISTENTE "ERRO! Não foi possível abrir o FIFO do servidor"
+#define ERRO_INPUT_INVALIDO "ERRO! Input inválido"
 
 
 
@@ -26,26 +27,28 @@ void processarComandoCliente(Comando* comandoAtual, const char* ficheirosDir)
         unlink(nomeFifoCliente);
     }
 
-    if (getTipoComando(comandoAtual) == FECHAR) //Fechar
+    if(getTipoComando(comandoAtual) == FECHAR) //Fechar
     {
-        write(fifoCliente, MENSAGEM_FECHO, strlen(MENSAGEM_FECHO));
+        Mensagem* mensagemFecho = criaMensagem(-1, false, MENSAGEM_FECHO);
+        writeMensagem(mensagemFecho, fifoCliente);
         close(fifoCliente);
+        freeMensagem(mensagemFecho);
         _exit(FECHAR);
     }
 
-    char* outputComando = executaComando(comandoAtual, METADADOS_NOME, strdup(ficheirosDir));
+    Mensagem* outputComando = executaComando(comandoAtual, METADADOS_NOME, strdup(ficheirosDir));
 
-    if (outputComando[0] == '\\') // Erro
+    if(isMensagemErro(outputComando)) // Erro
     {
-        write(fifoCliente, "!\n", 2);
-        perror(outputComando + 1);
-        free(outputComando);
+        writeMensagem(outputComando, fifoCliente);
+        perrorMensagem(outputComando);
+        freeMensagem(outputComando);
         close(fifoCliente);
         _exit(0);
     }
 
-    write(fifoCliente, outputComando, RESPOSTA_TAM_MAX);  // Sucesso
-    free(outputComando);
+    writeMensagem(outputComando, fifoCliente);  // Sucesso
+    freeMensagem(outputComando);
     close(fifoCliente);
     _exit(0);
 }
@@ -58,16 +61,16 @@ int main(int argc, char* argv[])
 {
     if(argc != 3 || !isNumero(argv[2])) 
     {
-        perror("Input inválido"); 
+        perror(ERRO_INPUT_INVALIDO); 
         return 1;
     }
 
     int fifoServer, estadoGeral = 0;
 
     mkfifo(PIPESERVER_NOME, 0666);
-    if ((fifoServer = open(PIPESERVER_NOME, O_RDONLY)) == -1) 
+    if((fifoServer = open(PIPESERVER_NOME, O_RDONLY)) == -1) 
     {
-        printf("%s", ERRO_FIFO_SERVIDOR_INEXISTENTE);
+        perror(ERRO_FIFO_SERVIDOR_INEXISTENTE);
         return 1;
     }
 
