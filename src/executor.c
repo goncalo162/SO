@@ -173,72 +173,106 @@ Mensagem* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char
     Metadados* metadados = NULL;
     char* caminhoCompleto = NULL;
 
-    if((fd = open(caminhoMetadados, O_RDWR | O_CREAT, 0666)) == -1) return DEVOLVE_MENSAGEM_ERRO(ERRO_ABRIR_FICHEIRO);
-    if(!(metadados = criaMetadados(comando))) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_DADOS_COMANDO, true, -1);
-    
-    if(!(caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir))) 
-    {
+    if ((fd = open(caminhoMetadados, O_RDWR | O_CREAT, 0666)) == -1)
+        return DEVOLVE_MENSAGEM_ERRO(ERRO_ABRIR_FICHEIRO);
+
+    if (!(metadados = criaMetadados(comando)))
+        return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_DADOS_COMANDO, true, -1);
+
+    if (!(caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir))) {
         free(caminhoCompleto);
         return limparRecursosComando(fd, metadados, NULL, ERRO_FICHEIRO_INEXISTENTE, true, -1);
     }
 
-    if(isStackEmpty(serveraux))
-    {
-        if(ficheiroVazio(caminhoMetadados)) 
-        {
-            write(fd, &index, sizeof(int));
-    
-        }else{
-            read(fd, &index, sizeof(int));
-            index++;
+    if (isStackEmpty(serveraux)) {
+        off_t len = lseek(fd, 0, SEEK_END);
+        if (len == 0) {
+            // Ficheiro vazio → primeiro index é 0
+            index = 0;
+            printf("[DEBUG][ADD] Ficheiro metadados vazio. Index inicial: %d\n", index);
+        } else {
+            // Lê último índice atribuído
             lseek(fd, 0, SEEK_SET);
-            write(fd, &index, sizeof(int));
+            if (read(fd, &index, sizeof(int)) != sizeof(int)) {
+                perror("[ERRO] Falha ao ler índice do ficheiro metadados");
+                return limparRecursosComando(fd, metadados, NULL, "Erro a ler índice do ficheiro", true, -1);
+            }
+            index++;
+            printf("[DEBUG][ADD] Índice lido do ficheiro: %d (novo será %d)\n", index - 1, index);
         }
+
+        // Atualiza o índice no início do ficheiro
+        lseek(fd, 0, SEEK_SET);
+        write(fd, &index, sizeof(int));
+
+        // Escreve no fim
         lseek(fd, 0, SEEK_END);
 
-    }else{
+    } else {
         index = getIndexCabeca(serveraux);
+        printf("[DEBUG][ADD] A usar índice livre da stack: %d\n", index);
         lseek(fd, (index * BUFFER) + 4, SEEK_SET);
     }
+
+    // Confirmação final
+    printf("[DEBUG][ADD] Atribuído índice final ao documento: %d\n", index);
 
     writeMetadados(metadados, fd);
     char resposta[RESPOSTA_TAM_MAX];
     snprintf(resposta, RESPOSTA_TAM_MAX, "Document %d indexed", index);
 
     free(caminhoCompleto);
-    return limparRecursosComando(fd, metadados, NULL, resposta, false, -1);
+    return limparRecursosComando(fd, NULL, NULL, resposta, false, -1);
 }
+
 
 
 
 //* Executa Comando Consultar
 
-Mensagem* executaComandoConsultar(Comando* comando, char* caminhoMetadados, ServerAuxiliar* serveraux)
-{
+Mensagem* executaComandoConsultar(Comando* comando, char* caminhoMetadados, ServerAuxiliar* serveraux) {
     int fd = -1;
     Metadados* metadados = NULL;
 
-    if((fd = open(caminhoMetadados, O_RDONLY)) == -1) return DEVOLVE_MENSAGEM_ERRO(ERRO_ABRIR_FICHEIRO);
+    if ((fd = open(caminhoMetadados, O_RDONLY)) == -1)
+        return DEVOLVE_MENSAGEM_ERRO(ERRO_ABRIR_FICHEIRO);
 
     int index = getIndexComando(comando);
-    if(index == -1) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_INDEX_COMANDO, true, -1);
+    if (index == -1)
+        return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_INDEX_COMANDO, true, -1);
 
-    lseek(fd, (index * BUFFER) + 4, SEEK_SET);
-    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE, true, -1);
+    // Tenta obter da cache
+    metadados = cache_get(getCache(serveraux), index);
 
+    if (!metadados) {
+        // Se não estiver na cache, lê do disco
+        lseek(fd, (index * BUFFER) + 4, SEEK_SET);
+        metadados = readMetadados(fd);
+
+        if (!metadados || isRemovido(metadados))
+            return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE, true, -1);
+
+        // Insere na cache
+        cache_put(getCache(serveraux), index, metadados);
+    }
+
+    // Construção da mensagem de resposta
     char* nome = getNome(metadados);
     char* autor = getAuthors(metadados);
     char* path = getPath(metadados);
     int ano = getAno(metadados);
 
     char resposta[RESPOSTA_TAM_MAX];
-    snprintf(resposta, RESPOSTA_TAM_MAX, "Title: %s\nAuthors: %s\nYear: %d\nPath: %s", nome, autor, ano, path);
+    snprintf(resposta, RESPOSTA_TAM_MAX,
+             "Title: %s\nAuthors: %s\nYear: %d\nPath: %s", nome, autor, ano, path);
 
     free(nome);
     free(autor);
     free(path);
-    return limparRecursosComando(fd, metadados, NULL, resposta, false, -1);
+
+    return limparRecursosComando(fd, NULL, NULL, resposta, false, -1);
 }
+
 
 
 
@@ -450,3 +484,4 @@ Mensagem* executaComando(Comando* comando, char* caminhoMetadados, char* ficheir
     free(ficheirosDir);
     return resultado;
 }
+

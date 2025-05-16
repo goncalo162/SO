@@ -1,0 +1,13 @@
+[DEBUG][GET] Index: 0 | Encontrado: NAO | Política: 0
+[CACHE] Inserido -> index 0 (policy 0)
+[DEBUG][GET] Index: 0 | Encontrado: NAO | Política: 0
+[CACHE] Inserido -> index 0 (policy 0)
+[DEBUG][GET] Index: 1 | Encontrado: NAO | Política: 0
+[CACHE] Inserido -> index 1 (policy 0)
+[DEBUG][GET] Index: 0 | Encontrado: NAO | Política: 0
+[CACHE] Inserido -> index 0 (policy 0)
+Title: Doc1
+Authors: Autor1
+Year: 2021
+Path: ficheiros/doc1.txt
+Server is shuting down

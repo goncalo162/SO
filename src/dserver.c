@@ -1,4 +1,5 @@
 #include "executor.h"
+#include "cache.h"
 
 #define RESPOSTA_TAM_MAX 200000
 #define METADADOS_NOME "metadados"
@@ -67,14 +68,18 @@ void processarComandoCliente(Comando* comandoAtual, const char* ficheirosDir, Se
 
 int main(int argc, char* argv[])
 {
-    if (argc != 3 || !isNumero(argv[2])) 
+    if (argc < 3 || argc > 4 || !isNumero(argv[2])) 
     {
         perror(ERRO_INPUT_INVALIDO); 
         return 1;
     }
+    int cache_size = atoi(argv[2]);
+    CachePolicy policy = POLICY_LRU; // default
+    if (argc == 4)
+    policy = parse_policy(argv[3]);
 
+    ServerAuxiliar* serveraux = initServerAux(cache_size, policy);
     int fifoServer, estadoGeral = 0;
-    ServerAuxiliar* serveraux = initServerAux();
 
     mkfifo(PIPESERVER_NOME, 0666);
     if ((fifoServer = open(PIPESERVER_NOME, O_RDONLY)) == -1) 

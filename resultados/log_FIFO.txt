@@ -1,0 +1,16 @@
+Document 3 indexed
+Document 4 indexed
+Title: Doc1
+Authors: Autor1
+Year: 2021
+Path: ficheiros/doc1.txt
+Title: Doc1
+Authors: Autor1
+Year: 2021
+Path: ficheiros/doc1.txt
+Document 5 indexed
+Title: Doc1
+Authors: Autor1
+Year: 2021
+Path: ficheiros/doc1.txt
+Server is shuting down

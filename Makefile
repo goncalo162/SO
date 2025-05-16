@@ -10,11 +10,11 @@ dclient: bin/dclient
 folders:
 	@mkdir -p src include obj bin
 
-bin/dserver: obj/utils.o obj/mensagem.o obj/comandos.o obj/metadados.o obj/serveraux.o obj/executor.o obj/dserver.o
-	$(CC) $(LDFLAGS) $^ -o $@
+bin/dserver: obj/utils.o obj/mensagem.o obj/comandos.o obj/metadados.o obj/serveraux.o obj/executor.o obj/cache.o obj/dserver.o
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 bin/dclient: obj/utils.o obj/mensagem.o obj/comandos.o obj/dclient.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LDFLAGS)
 
 obj/utils.o: src/utils.c include/utils.h
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -26,6 +26,9 @@ obj/metadados.o: src/metadados.c include/metadados.h include/comandos.h include/
 	$(CC) $(CFLAGS) -c $< -o $@
 
 obj/serveraux.o: src/serveraux.c include/serveraux.h include/metadados.h include/comandos.h include/utils.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+obj/cache.o: src/cache.c include/cache.h include/metadados.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 obj/mensagem.o: src/mensagem.c include/mensagem.h include/utils.h
