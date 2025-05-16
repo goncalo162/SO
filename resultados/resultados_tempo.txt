@@ -1,4 +1,0 @@
-LRU: 249 ms
-FIFO: 240 ms
-LFU: 242 ms
-RANDOM: 233 ms

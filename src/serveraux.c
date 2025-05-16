@@ -9,7 +9,8 @@
 typedef struct serverAux
 {
     GArray* indicesLivres;
-    Cache* cache;
+    GHashTable* cache;
+    GQueue* ordemCache;
     
 } ServerAuxiliar;
 
@@ -108,13 +109,15 @@ void readStack(ServerAuxiliar* stack)
 
 //* Funções de Inicialização
 
-ServerAuxiliar* initServerAux(int cacheSize, CachePolicy policy) {
-    ServerAuxiliar* aux = malloc(sizeof(ServerAuxiliar));
+ServerAuxiliar* initServerAux() 
+{
+    ServerAuxiliar* nServerAux = malloc(sizeof(ServerAuxiliar));
 
-    aux->indicesLivres = g_array_new(FALSE, FALSE, sizeof(int));
-    aux->cache = cache_create(cacheSize, policy);  
+    readStack(nServerAux);
+    nServerAux->cache = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, freeMetadadosVoid);
+    nServerAux->ordemCache = g_queue_new();
 
-    return aux;
+    return nServerAux;
 }
 
 
@@ -126,22 +129,6 @@ void freeServerAux(ServerAuxiliar* stack)
     writeStack(stack);
 
     g_array_free(stack->indicesLivres, TRUE);
-    cache_free(stack->cache);
-}
-
-
-Metadados* serveraux_get_cache(ServerAuxiliar* aux, int index) {
-    return cache_get(aux->cache, index);
-}
-
-bool serveraux_has_cache(ServerAuxiliar* aux, int index) {
-    return cache_contains(aux->cache, index);
-}
-
-void serveraux_put_cache(ServerAuxiliar* aux, int index, Metadados* meta) {
-    cache_put(aux->cache, index, meta);
-}
-
-Cache* getCache(ServerAuxiliar* aux) {
-    return aux->cache;
+    g_hash_table_destroy(stack->cache);
+    g_queue_free(stack->ordemCache);
 }
