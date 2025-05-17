@@ -164,14 +164,13 @@ void cachePut(ServerAuxiliar* aux, int index, Metadados* metadados)
 {
     if (g_hash_table_contains(aux->cache, GINT_TO_POINTER(index))) 
     {
-        g_hash_table_replace(aux->cache, GINT_TO_POINTER(index), metadados); // Já está na cache: atualiza
-
-        #ifdef LRU // Atualiza ordem se for LRU
+        g_hash_table_replace(aux->cache, GINT_TO_POINTER(index), metadados); 
+        #ifdef LRU 
         g_queue_remove(aux->ordemCache, GINT_TO_POINTER(index));
         g_queue_push_tail(aux->ordemCache, GINT_TO_POINTER(index));
         #endif
     } else {
-        if (g_hash_table_size(aux->cache) >= (guint)aux->capacidadeCache) // Cache cheia: remover conforme política
+        if (g_hash_table_size(aux->cache) >= (guint)aux->capacidadeCache) 
         {
             gpointer remover = NULL;
 
@@ -184,7 +183,7 @@ void cachePut(ServerAuxiliar* aux, int index, Metadados* metadados)
             g_hash_table_remove(aux->cache, remover);
         }
 
-        // Inserir na cache
+       
         g_hash_table_insert(aux->cache, GINT_TO_POINTER(index), metadados);
         g_queue_push_tail(aux->ordemCache, GINT_TO_POINTER(index));
     }

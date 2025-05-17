@@ -1,9 +1,9 @@
 #include "comandos.h"
 #include "mensagem.h"
 
-#define PIPESERVER_NOME "pipeServer" //Nome que o pipe com nome para enviar mensagens aos servidor deverá ter
-#define PIPECLIENTE_NOME_MAX 50 //Número máximo de bytes que o nome do pipe com nome para receber mensagens do servidor deverá ter
-#define RESPOSTA_TAM_MAX 200000 //Número máximo de bytes que uma resposta pode ter
+#define PIPESERVER_NOME "pipeServer" 
+#define PIPECLIENTE_NOME_MAX 50 
+#define RESPOSTA_TAM_MAX 200000
 
 
 
