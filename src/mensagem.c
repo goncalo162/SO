@@ -54,6 +54,7 @@ Mensagem* criaMensagem(int valorIndex, bool isErro, char* info)
             isUltimo = true;
 
         nMensagem->listaPacotes[i] = criaPacote(isUltimo, info + ((TAMANHO_PACOTE-1) * i)); 
+    }
     nMensagem->listaPacotes[numPacotes] = NULL; 
     nMensagem->indexRelevante = valorIndex;
     nMensagem->erro = isErro;
