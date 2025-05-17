@@ -1,6 +1,10 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -Iinclude `pkg-config --cflags glib-2.0`
+CFLAGS_BASE = -Wall -Wextra -O2 -Iinclude `pkg-config --cflags glib-2.0`
 LDFLAGS = `pkg-config --libs glib-2.0`
+
+CACHE ?=
+
+CFLAGS = $(CFLAGS_BASE) $(CACHE)
 
 all: folders dserver dclient
 
@@ -15,7 +19,6 @@ bin/dserver: obj/utils.o obj/mensagem.o obj/comandos.o obj/metadados.o obj/serve
 
 bin/dclient: obj/utils.o obj/mensagem.o obj/comandos.o obj/dclient.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
-
 
 obj/utils.o: src/utils.c include/utils.h
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -45,4 +48,4 @@ clean:
 	rm -rf obj/* bin/* obj bin
 
 debug: clean
-	$(MAKE) all CFLAGS="$(CFLAGS) -g" LDFLAGS="$(LDFLAGS)"
+	$(MAKE) all CFLAGS="$(CFLAGS_BASE) -g $(CACHE)" LDFLAGS="$(LDFLAGS)"
