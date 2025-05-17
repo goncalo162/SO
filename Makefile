@@ -11,10 +11,11 @@ folders:
 	@mkdir -p src include obj bin
 
 bin/dserver: obj/utils.o obj/mensagem.o obj/comandos.o obj/metadados.o obj/serveraux.o obj/executor.o obj/dserver.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 bin/dclient: obj/utils.o obj/mensagem.o obj/comandos.o obj/dclient.o
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
 
 obj/utils.o: src/utils.c include/utils.h
 	$(CC) $(CFLAGS) -c $< -o $@
