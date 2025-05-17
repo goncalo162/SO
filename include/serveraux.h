@@ -22,7 +22,7 @@ typedef struct serverAux ServerAuxiliar;
  *
  * @return Ponteiro para a estrutura ServerAuxiliar recém-criada.
  */
-ServerAuxiliar* initServerAux(int capacidadeCache);
+ServerAuxiliar* initServerAux();
 
 /**
  * @brief Remove e devolve o índice no topo da stack.
