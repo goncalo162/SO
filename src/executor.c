@@ -89,6 +89,21 @@ Mensagem* juntaRespostas(int numProcessos, int pipes[][2], int pids[])
 }
 
 
+Metadados* getMetadados(ServerAuxiliar* serveraux, int index, int fd)
+{
+    Metadados* metadados = NULL;
+
+    metadados = cacheGet(serveraux, index);
+    if(metadados == NULL)
+    {
+        lseek(fd, (index * BUFFER) + 4, SEEK_SET);
+        if(!(metadados = readMetadados(fd)) || isRemovido(metadados))
+            return NULL;
+    }
+
+    return metadados;    
+}
+
 
 //* Executar programas externos
 
@@ -201,6 +216,7 @@ Mensagem* executaComandoAdicionar(Comando* comando, char* caminhoMetadados, char
         lseek(fd, (index * BUFFER) + 4, SEEK_SET);
     }
 
+    cachePut(serveraux, index, metadados);
     writeMetadados(metadados, fd);
     char resposta[RESPOSTA_TAM_MAX];
     snprintf(resposta, RESPOSTA_TAM_MAX, "Document %d indexed", index);
@@ -223,8 +239,8 @@ Mensagem* executaComandoConsultar(Comando* comando, char* caminhoMetadados, Serv
     int index = getIndexComando(comando);
     if(index == -1) return limparRecursosComando(fd, NULL, NULL, ERRO_COPIAR_INDEX_COMANDO, true, -1);
 
-    lseek(fd, (index * BUFFER) + 4, SEEK_SET);
-    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE, true, -1);
+
+    if(!(metadados = getMetadados(serveraux, index, fd))) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE, true, -1);
 
     char* nome = getNome(metadados);
     char* autor = getAuthors(metadados);
@@ -260,6 +276,7 @@ Mensagem* executaComandoRemover(Comando* comando, char* caminhoMetadados, Server
     lseek(fd, (index * BUFFER) + 4, SEEK_SET);
     if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, NULL, ERRO_INDEX_INEXISTENTE, true, -1);
 
+    cacheRemove(serveraux, index);
     setRemovido(metadados);
     lseek(fd, -BUFFER, SEEK_CUR);
     writeMetadados(metadados, fd);
@@ -286,9 +303,7 @@ Mensagem* executaComandoPesquisaNumLinhas(Comando* comando, char* caminhoMetadad
     if((palavraChave = getPalavraChaveComando(comando)) == NULL) return DEVOLVE_MENSAGEM_ERRO(ERRO_COPIAR_PALAVRA_CHAVE_COMANDO);
 
     if((fd = open(caminhoMetadados, O_RDWR)) == -1) return limparRecursosComando(fd, NULL, palavraChave, ERRO_ABRIR_FICHEIRO, true, -1);
-
-    lseek(fd, (index * BUFFER) + 4, SEEK_SET);
-    if(!(metadados = readMetadados(fd)) || isRemovido(metadados)) return limparRecursosComando(fd, metadados, palavraChave, ERRO_INDEX_INEXISTENTE, true, -1);
+    if(!(metadados = getMetadados(serveraux, index, fd))) return limparRecursosComando(fd, metadados, palavraChave, ERRO_INDEX_INEXISTENTE, true, -1);
 
     char* caminhoCompleto;
     if(!(caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir))) return limparRecursosComando(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE, true, -1);
@@ -314,38 +329,34 @@ char* executaComandoPesquisaIds(Comando* comando, char* caminhoMetadados, char* 
 
     if(fim == -1) 
     {
-        if(read(fd, &indexMax, sizeof(int)) < 0) return limparRecursosString(fd, NULL, palavraChave, ERRO_COPIAR_INDEX_COMANDO);
+        if(read(fd, &indexMax, sizeof(int)) < 0) 
+            return limparRecursosString(fd, NULL, palavraChave, ERRO_COPIAR_INDEX_COMANDO);
+
     }else{
         indexMax = fim;
-        lseek(fd, 4, SEEK_SET);
     }
 
-    lseek(fd, (inicio * BUFFER) + 4, SEEK_SET);
     for(int i = inicio; i <= indexMax; i++) 
     {
-        Metadados* metadados = readMetadados(fd);
-        if(!metadados) break;
-        if(isRemovido(metadados)) 
-        {
-            freeMetadados(metadados);
+        Metadados* metadados = getMetadados(serveraux, i, fd);
+        if(!metadados) 
             continue;
-        }
 
         char* caminhoCompleto = construirCaminhoCompleto(metadados, ficheirosDir);
-        if(!caminhoCompleto)
+        if(!caminhoCompleto) 
         {
-            free(caminhoCompleto);
-            return limparRecursosString(fd, metadados, palavraChave, ERRO_FICHEIRO_INEXISTENTE);
+            freeMetadados(metadados);
+            return limparRecursosString(fd, NULL, palavraChave, ERRO_FICHEIRO_INEXISTENTE);
         }
 
-        if(ficheiroExiste(caminhoCompleto) && contemPalavra(palavraChave, caminhoCompleto)) 
+        if(ficheiroExiste(caminhoCompleto) && contemPalavra(palavraChave, caminhoCompleto))
             offset += snprintf(resposta + offset, RESPOSTA_TAM_MAX - offset, "%d, ", i);
 
         free(caminhoCompleto);
         freeMetadados(metadados);
     }
 
-    if(offset > 1)
+    if(offset > 1) 
     {
         resposta[offset - 2] = ']';
         resposta[offset - 1] = '\0';
@@ -376,6 +387,7 @@ Mensagem* executaComandoPesquisaIdsMultiproc(Comando* comando, char* caminhoMeta
     }
     close(fd);
 
+    if(numProcessos>indexMax) numProcessos = indexMax;
     int segmento = (indexMax + 1) / numProcessos;
     int resto = (indexMax + 1) % numProcessos;
 

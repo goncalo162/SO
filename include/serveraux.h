@@ -22,7 +22,7 @@ typedef struct serverAux ServerAuxiliar;
  *
  * @return Ponteiro para a estrutura ServerAuxiliar recém-criada.
  */
-ServerAuxiliar* initServerAux();
+ServerAuxiliar* initServerAux(int tamanho);
 
 /**
  * @brief Remove e devolve o índice no topo da stack.
@@ -78,8 +78,8 @@ int getIndexCabeca(ServerAuxiliar* stack);
  */
 void debugPrintStack(ServerAuxiliar *stack);
 
-Metadados* cache_get(ServerAuxiliar* aux, int index);
-void cache_put(ServerAuxiliar* aux, int index, Metadados* metadados);
-
+Metadados* cacheGet(ServerAuxiliar* aux, int index);
+void cachePut(ServerAuxiliar* aux, int index, Metadados* metadados);
+void cacheRemove(ServerAuxiliar* aux, int index);
 
 #endif
