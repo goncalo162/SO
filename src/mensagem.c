@@ -1,7 +1,6 @@
 #include "mensagem.h"
 
 
-
 //* Typedef
 
 typedef struct pacote
@@ -46,8 +45,7 @@ Mensagem* criaMensagem(int valorIndex, bool isErro, char* info)
 {
     Mensagem* nMensagem = malloc(sizeof(Mensagem));
     int tamanho = strlen(info);
-    int numPacotes = (tamanho / TAMANHO_PACOTE) + 1; //Divisão inteira, por isso adicionamos '1' ao resultado
-
+    int numPacotes = (tamanho / TAMANHO_PACOTE) + 1; 
     nMensagem->listaPacotes = malloc(sizeof(Pacote) * (numPacotes + 1));
     for(int i=0; i<numPacotes; i++)
     {
@@ -55,8 +53,7 @@ Mensagem* criaMensagem(int valorIndex, bool isErro, char* info)
         if(i+1 == numPacotes)
             isUltimo = true;
 
-        nMensagem->listaPacotes[i] = criaPacote(isUltimo, info + ((TAMANHO_PACOTE-1) * i)); //Começar a ler a informação somando i vezes o tamanho do pacote
-    }
+        nMensagem->listaPacotes[i] = criaPacote(isUltimo, info + ((TAMANHO_PACOTE-1) * i)); 
     nMensagem->listaPacotes[numPacotes] = NULL; 
     nMensagem->indexRelevante = valorIndex;
     nMensagem->erro = isErro;
@@ -95,14 +92,14 @@ void writePacote(Pacote* pacote, int fd)
 
 void writeMensagem(Mensagem* mensagem, int fd)
 {
-    if(!mensagem->erro) //Sem Erro
+    if(!mensagem->erro) 
     {
         for(int i=0; mensagem->listaPacotes[i]; i++)
         {
             writePacote(mensagem->listaPacotes[i], fd);
         }
 
-    }else{ //Erro
+    }else{ 
         Pacote* pacoteErro = criaPacote(true, NULL);
         writePacote(pacoteErro, fd);
     }
@@ -138,7 +135,7 @@ char* readMensagem(int fd)
         pacoteAtual = readPacote(fd);
         if(pacoteAtual != NULL)
         {
-            if(pacoteAtual->informacao[0] != '\0') //Verifica se não é um pacote de erro
+            if(pacoteAtual->informacao[0] != '\0') 
             {
                 numPacotes++;
                 resultado = realloc(resultado, TAMANHO_PACOTE * numPacotes);
@@ -167,8 +164,8 @@ char* readMensagem(int fd)
 
 //* Perror
 
-void perrorMensagem(Mensagem* mensagem) //Assume que todas as mensagens de erro necessitam apenas de um pacote
-{
+void perrorMensagem(Mensagem* mensagem) {
+
     perror(mensagem->listaPacotes[0]->informacao);
 }
 

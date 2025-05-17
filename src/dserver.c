@@ -20,14 +20,14 @@ void processarComandoCliente(Comando* comandoAtual, const char* ficheirosDir, Se
 
     snprintf(nomeFifoCliente, PIPECLIENTE_NOME_MAX, "pipeCliente%d", getPidCliente(comandoAtual));
 
-    if((fifoCliente = open(nomeFifoCliente, O_WRONLY)) == -1) //Erro ao abrir o FIFO do cliente
+    if((fifoCliente = open(nomeFifoCliente, O_WRONLY)) == -1)
     {
         perror(ERRO_FIFO_CLIENTE_INEXISTENTE);
         _exit(FECHAR);
         unlink(nomeFifoCliente);
     }
 
-    if((tipo = getTipoComando(comandoAtual)) == FECHAR) //Fechar
+    if((tipo = getTipoComando(comandoAtual)) == FECHAR) 
     {
         Mensagem* mensagemFecho = criaMensagem(-1, false, MENSAGEM_FECHO);
         writeMensagem(mensagemFecho, fifoCliente);
@@ -38,7 +38,7 @@ void processarComandoCliente(Comando* comandoAtual, const char* ficheirosDir, Se
 
     Mensagem* outputComando = executaComando(comandoAtual, METADADOS_NOME, strdup(ficheirosDir), serveraux);
 
-    if(isMensagemErro(outputComando)) // Erro
+    if(isMensagemErro(outputComando)) 
     {
         writeMensagem(outputComando, fifoCliente);
         perrorMensagem(outputComando);
@@ -47,7 +47,7 @@ void processarComandoCliente(Comando* comandoAtual, const char* ficheirosDir, Se
         _exit(0);
     }
 
-    writeMensagem(outputComando, fifoCliente); // Sucesso
+    writeMensagem(outputComando, fifoCliente); 
     if(tipo == REMOVER)
     {
         close(fildes[0]);

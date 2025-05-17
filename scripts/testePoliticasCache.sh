@@ -1,35 +1,44 @@
 #!/bin/bash
 
+# SCRIPT DE BENCHMARK DE CACHE
+# Compara o desempenho de diferentes políticas de substituição de cache (LRU, FIFO)
+# para vários tamanhos de cache, medindo o tempo de consulta (-c) repetidamente.
+# Usa make com flags de compilação e executa o servidor/cliente em ciclos.
 
+# Verifica se o número de argumentos está correto
 if [ "$#" -ne 2 ]; then
     echo -e "${VERMELHO}Uso: $0 <pasta_dataset> <número_de_iterações>${NEUTRO}"
     exit 1
 fi
 
+# Atribuição dos argumentos a variáveis
 PASTA_DATASET="$1"
 ITERACOES="$2"
 
-
+# Verifica se a pasta do dataset existe
 if [ ! -d "$PASTA_DATASET" ]; then
     echo -e "${VERMELHO}Erro: Pasta '$PASTA_DATASET' não encontrada.${NEUTRO}"
     exit 1
 fi
 
+# Arrays com configurações a testar
 TAMANHOS_CACHE=(5 10 20)
 POLITICAS=("-DLRU" "-DFIFO")
 ID_DOCUMENTO_CONSULTA=1
 FICHEIRO_INDEXAR="1112.txt"
 
+# Criação e limpeza da pasta de resultados
 mkdir -p results
 rm -f results/cache_*.txt
 
+# Códigos de cor para saída formatada
 VERDE="\e[32m"
 VERMELHO="\e[31m"
 AZUL="\e[34m"
 AMARELO="\e[33m"
 NEUTRO="\e[0m"
 
-
+# Função para calcular estatísticas de tempos (melhor, pior, média)
 calcular_estatisticas() {
     local ficheiro=$1
     local melhor=$(sort -g "$ficheiro" | head -n 1)
@@ -38,6 +47,7 @@ calcular_estatisticas() {
     echo "$melhor $pior $media"
 }
 
+# Loop por tamanho de cache
 for TAMANHO in "${TAMANHOS_CACHE[@]}"; do
     echo -e "${AMARELO}====== Tamanho da Cache: $TAMANHO ======${NEUTRO}"
     for POLITICA in "${POLITICAS[@]}"; do
@@ -69,10 +79,12 @@ for TAMANHO in "${TAMANHOS_CACHE[@]}"; do
     done
 done
 
+# Apresentação do resumo de estatísticas
 echo
 echo -e "${AMARELO}========== RESUMO ==========${NEUTRO}"
 declare -A vitorias
 
+# Loop para calcular e mostrar resultados
 for TAMANHO in "${TAMANHOS_CACHE[@]}"; do
     echo -e "${AMARELO}--- Cache: $TAMANHO ---${NEUTRO}"
     declare -A tempos
@@ -91,7 +103,7 @@ for TAMANHO in "${TAMANHOS_CACHE[@]}"; do
     fi
 done
 
-
+# Exibe vencedor geral
 echo
 echo -e "${AMARELO}========== VENCEDOR FINAL ==========${NEUTRO}"
 echo -e "LRU venceu: ${vitorias[LRU]:-0} testes"

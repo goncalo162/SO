@@ -15,14 +15,17 @@
  */
 typedef struct serverAux ServerAuxiliar;
 
+
 /**
  * @brief Inicializa a estrutura auxiliar do servidor.
  *
- * Cria e inicializa uma stack para gerir índices disponíveis.
+ * Cria e inicializa uma stack para gerir índices disponíveis e uma cache com capacidade limitada.
  *
+ * @param tamanho Capacidade máxima da cache.
  * @return Ponteiro para a estrutura ServerAuxiliar recém-criada.
  */
 ServerAuxiliar* initServerAux(int tamanho);
+
 
 /**
  * @brief Remove e devolve o índice no topo da stack.
@@ -33,6 +36,7 @@ ServerAuxiliar* initServerAux(int tamanho);
  * @return Índice inteiro no topo da stack, ou valor indefinido se a stack estiver vazia.
  */
 int popStack(ServerAuxiliar* stack);
+
 
 /**
  * @brief Insere um índice na stack.
@@ -78,8 +82,40 @@ int getIndexCabeca(ServerAuxiliar* stack);
  */
 void debugPrintStack(ServerAuxiliar *stack);
 
+
+/**
+ * @brief Obtém os metadados associados a um índice na cache.
+ *
+ * @param aux Ponteiro para a estrutura ServerAuxiliar.
+ * @param index Índice do metadado a obter.
+ * @return Ponteiro para os metadados se existirem na cache, ou NULL caso contrário.
+ */
 Metadados* cacheGet(ServerAuxiliar* aux, int index);
+
+
+/**
+ * @brief Insere ou atualiza um metadado na cache.
+ *
+ * Adiciona os metadados à cache associados ao índice dado. Se o índice já existir,
+ * os metadados são atualizados. Caso a cache atinja a sua capacidade máxima, aplica-se
+ * a política de substituição definida (ex. LRU).
+ *
+ * @param aux Ponteiro para a estrutura ServerAuxiliar.
+ * @param index Índice associado aos metadados.
+ * @param metadados Ponteiro para a estrutura Metadados a armazenar na cache.
+ */
 void cachePut(ServerAuxiliar* aux, int index, Metadados* metadados);
+
+
+/**
+ * @brief Remove os metadados associados a um índice da cache.
+ *
+ * Elimina da cache os metadados correspondentes ao índice fornecido.
+ * Liberta a memória associada a esses metadados, se aplicável.
+ *
+ * @param aux Ponteiro para a estrutura ServerAuxiliar.
+ * @param index Índice cujos metadados devem ser removidos da cache.
+ */
 void cacheRemove(ServerAuxiliar* aux, int index);
 
 #endif

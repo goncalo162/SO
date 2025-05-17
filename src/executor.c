@@ -1,6 +1,6 @@
 #include "executor.h"
 
-#define RESPOSTA_TAM_MAX 200000 //Número máximo de bytes que uma resposta pode ter
+#define RESPOSTA_TAM_MAX 200000 
 #define ERRO_ABRIR_FICHEIRO "ERRO! Não foi possível abrir um ficheiro"
 #define ERRO_COPIAR_DADOS_COMANDO "ERRO! Não foi possível copiar os dados do comando"
 #define ERRO_COPIAR_INDEX_COMANDO "ERRO! Não foi possível copiar o index do comando"
@@ -10,7 +10,7 @@
 #define ERRO_INDEX_INEXISTENTE "ERRO! Esse index não existe no dataset ou foi removido"
 #define ERRO_LER_INDEXMAX "ERRO! Não foi possível ler o index máximo do ficheiro"
 #define ERRO_PROCESSO_FILHO_FALHOU "ERRO! Processo filho falhou"
-#define DEVOLVE_MENSAGEM_ERRO(texto) criaMensagem(-1, true, texto) //Macro que chama criaMensagem para erros
+#define DEVOLVE_MENSAGEM_ERRO(texto) criaMensagem(-1, true, texto) 
 
 
 
@@ -119,7 +119,7 @@ bool contemPalavra(const char* palavra, const char* caminho)
         close(fildes[0]);
         close(fildes[1]);
         execlp("grep", "grep", palavra, caminho, NULL);
-        _exit(EXIT_FAILURE);
+        _exit(EXIT_FAILURE); 
     }
 
     close(fildes[1]);

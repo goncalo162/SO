@@ -1,9 +1,5 @@
 #include "utils.h"
 
-
-
-//* Funções de Utilidade
-
 bool isNumero(char* texto)
 {
     for(int i=0; texto[i]!='\0'; i++)
@@ -32,7 +28,7 @@ bool ficheiroVazio(const char* caminho)
     struct stat buffer;
     if(stat(caminho, &buffer) == 0)
     {
-        return buffer.st_size == 0; //Retorna true se o tamanho do ficheiro não for 0 bytes
+        return buffer.st_size == 0; 
     }
     return true;
 }

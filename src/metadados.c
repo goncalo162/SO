@@ -25,7 +25,7 @@ Metadados* criaMetadados(Comando* comando)
     if(getDadosComandoAdicionar(comando, metadados->nome, metadados->autor, metadados->path, &(metadados->ano), &(metadados->removido)) == 0)
         return metadados; 
     
-    free(metadados); //Caso ler tenha corrido mal
+    free(metadados); 
     return NULL;
 }
 
