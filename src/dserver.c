@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
     }
 
     int fifoServer, estadoGeral = 0;
-    ServerAuxiliar* serveraux = initServerAux();
+    ServerAuxiliar* serveraux = initServerAux(atoi(argv[2]));
 
     mkfifo(PIPESERVER_NOME, 0666);
     if ((fifoServer = open(PIPESERVER_NOME, O_RDONLY)) == -1) 
